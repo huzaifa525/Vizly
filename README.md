@@ -72,9 +72,22 @@ The application will be available at:
 
 ### Docker Deployment
 
+**Development Mode** (with hot-reload):
 ```bash
 docker-compose up -d
 ```
+
+This starts both backend and frontend services:
+- Frontend: http://localhost:5173 (Vite dev server with hot-reload)
+- Backend: http://localhost:8000 (Django API)
+- Django Admin: http://localhost:8000/admin
+
+**Production Mode** (optimized build):
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+This builds and serves the optimized production bundle.
 
 ## Project Structure
 
