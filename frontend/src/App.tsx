@@ -3,31 +3,37 @@ import { useAuthStore } from './stores/authStore';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import DashboardViewPage from './pages/DashboardViewPage';
 import ConnectionsPage from './pages/ConnectionsPage';
 import QueriesPage from './pages/QueriesPage';
 import VisualizationsPage from './pages/VisualizationsPage';
 import Layout from './components/Layout';
+import Toast from './components/Toast';
 
 function App() {
   const { isAuthenticated } = useAuthStore();
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+    <>
+      <Toast />
+      <Router>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        <Route
-          path="/"
-          element={isAuthenticated ? <Layout /> : <Navigate to="/login" />}
-        >
-          <Route index element={<DashboardPage />} />
-          <Route path="connections" element={<ConnectionsPage />} />
-          <Route path="queries" element={<QueriesPage />} />
-          <Route path="visualizations" element={<VisualizationsPage />} />
-        </Route>
-      </Routes>
-    </Router>
+          <Route
+            path="/"
+            element={isAuthenticated ? <Layout /> : <Navigate to="/login" />}
+          >
+            <Route index element={<DashboardPage />} />
+            <Route path="dashboard/:id" element={<DashboardViewPage />} />
+            <Route path="connections" element={<ConnectionsPage />} />
+            <Route path="queries" element={<QueriesPage />} />
+            <Route path="visualizations" element={<VisualizationsPage />} />
+          </Route>
+        </Routes>
+      </Router>
+    </>
   );
 }
 
