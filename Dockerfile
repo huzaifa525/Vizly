@@ -1,15 +1,6 @@
-# Multi-stage build for Vizly
+# Multi-stage build for Vizly with Django
 
-# Stage 1: Build backend
-FROM node:18-alpine AS backend-builder
-WORKDIR /app/backend
-COPY backend/package*.json ./
-RUN npm ci
-COPY backend/ ./
-RUN npm run build
-RUN npx prisma generate
-
-# Stage 2: Build frontend
+# Stage 1: Build frontend
 FROM node:18-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
@@ -17,31 +8,39 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 3: Production image
-FROM node:18-alpine AS production
+# Stage 2: Production image
+FROM python:3.11-slim AS production
 WORKDIR /app
 
-# Install production dependencies for backend
-COPY backend/package*.json ./
-RUN npm ci --only=production
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy built backend
-COPY --from=backend-builder /app/backend/dist ./dist
-COPY --from=backend-builder /app/backend/prisma ./prisma
-COPY --from=backend-builder /app/backend/node_modules/.prisma ./node_modules/.prisma
+# Install Python dependencies
+COPY backend/requirements.txt backend/requirements-prod.txt ./
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+# Copy backend code
+COPY backend/ ./
 
 # Copy built frontend
-COPY --from=frontend-builder /app/frontend/dist ./public
+COPY --from=frontend-builder /app/frontend/dist ./staticfiles/frontend
 
 # Create directory for SQLite database
 RUN mkdir -p /app/data
 
+# Collect static files
+RUN python manage.py collectstatic --noinput || true
+
 # Expose port
-EXPOSE 3001
+EXPOSE 8000
 
 # Set environment variables
-ENV NODE_ENV=production
-ENV DATABASE_URL="file:/app/data/vizly.db"
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=vizly.settings
 
-# Run database migrations and start server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Run migrations and start server
+CMD ["sh", "-c", "python manage.py migrate && gunicorn vizly.wsgi:application --bind 0.0.0.0:8000 --workers 3"]

@@ -4,13 +4,12 @@ services:
   vizly:
     build: .
     ports:
-      - "3001:3001"
+      - "8000:8000"
     environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - DATABASE_URL=file:/app/data/vizly.db
-      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key}
-      - CORS_ORIGIN=http://localhost:3001
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key-in-production}
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+      - CORS_ALLOWED_ORIGINS=http://localhost:8000
     volumes:
       - vizly-data:/app/data
     restart: unless-stopped
