@@ -1,0 +1,113 @@
+// Vizly Internal Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User management
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("user") // admin, user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  queries    Query[]
+  dashboards Dashboard[]
+  connections Connection[]
+}
+
+// External database connections
+model Connection {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // postgres, mysql, sqlite
+  host        String?
+  port        Int?
+  database    String
+  username    String?
+  password    String?  // Encrypted in production
+  ssl         Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  queries     Query[]
+
+  @@index([userId])
+}
+
+// Saved SQL queries
+model Query {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  sql          String
+  connectionId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  userId       String
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  visualizations Visualization[]
+
+  @@index([userId])
+  @@index([connectionId])
+}
+
+// Chart/visualization configurations
+model Visualization {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // table, line, bar, pie, area, scatter
+  config      String   // JSON config for chart options
+  queryId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  query       Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  dashboardItems DashboardItem[]
+
+  @@index([queryId])
+}
+
+// Dashboards
+model Dashboard {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  layout      String?  // JSON layout configuration
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       DashboardItem[]
+
+  @@index([userId])
+}
+
+// Dashboard items (visualizations on a dashboard)
+model DashboardItem {
+  id              String   @id @default(uuid())
+  dashboardId     String
+  visualizationId String
+  position        String   // JSON with x, y, w, h for grid layout
+  createdAt       DateTime @default(now())
+
+  dashboard       Dashboard     @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  visualization   Visualization @relation(fields: [visualizationId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@index([visualizationId])
+}
