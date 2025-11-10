@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Query
 from .serializers import QuerySerializer
+from connections.models import Connection
 from connections.services import execute_query
 
 
@@ -98,6 +99,36 @@ class QueryViewSet(viewsets.ModelViewSet):
             return Response({
                 'status': 'error',
                 'message': 'Query not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def execute_raw(self, request):
+        """Execute raw SQL query"""
+        try:
+            connection_id = request.data.get('connection_id')
+            sql = request.data.get('sql')
+
+            if not connection_id or not sql:
+                return Response({
+                    'status': 'error',
+                    'message': 'connection_id and sql are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            connection = Connection.objects.get(pk=connection_id, user=request.user)
+            result = execute_query(connection, sql)
+            return Response({
+                'status': 'success',
+                'data': result
+            })
+        except Connection.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Connection not found'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({

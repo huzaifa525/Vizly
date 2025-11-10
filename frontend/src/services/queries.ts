@@ -4,22 +4,22 @@ import { Query, QueryResult } from '../types';
 export const queriesAPI = {
   getAll: async (): Promise<Query[]> => {
     const response = await api.get('/queries/');
-    return response.data;
+    return response.data.data?.queries || response.data;
   },
 
   getById: async (id: string): Promise<Query> => {
     const response = await api.get(`/queries/${id}/`);
-    return response.data;
+    return response.data.data?.query || response.data;
   },
 
   create: async (data: Partial<Query>): Promise<Query> => {
     const response = await api.post('/queries/', data);
-    return response.data;
+    return response.data.data?.query || response.data;
   },
 
   update: async (id: string, data: Partial<Query>): Promise<Query> => {
     const response = await api.put(`/queries/${id}/`, data);
-    return response.data;
+    return response.data.data?.query || response.data;
   },
 
   delete: async (id: string): Promise<void> => {
@@ -28,14 +28,14 @@ export const queriesAPI = {
 
   execute: async (id: string): Promise<QueryResult> => {
     const response = await api.post(`/queries/${id}/execute/`);
-    return response.data;
+    return response.data.data || response.data;
   },
 
   executeRaw: async (connectionId: string, sql: string): Promise<QueryResult> => {
-    const response = await api.post('/queries/execute/', {
+    const response = await api.post('/queries/execute_raw/', {
       connection_id: connectionId,
       sql,
     });
-    return response.data;
+    return response.data.data || response.data;
   },
 };

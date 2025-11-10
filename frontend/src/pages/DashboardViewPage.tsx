@@ -11,7 +11,7 @@ import { dashboardsAPI } from '../services/dashboards';
 import { visualizationsAPI } from '../services/visualizations';
 import { queriesAPI } from '../services/queries';
 import 'react-grid-layout/css/styles.css';
-import 'react-grid-layout/css/resizable.css';
+import 'react-resizable/css/styles.css';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
@@ -204,7 +204,7 @@ const DashboardViewPage = () => {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                {pieData.map((entry, index) => (
+                {pieData.map((_: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

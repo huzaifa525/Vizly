@@ -24,8 +24,8 @@ export interface Query {
   name: string;
   description?: string;
   sql: string;
-  connectionId: string;
-  connection?: Connection;
+  connection: string;
+  connection_details?: Connection;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,10 +33,10 @@ export interface Query {
 export interface Visualization {
   id: string;
   name: string;
-  type: 'table' | 'line' | 'bar' | 'pie' | 'area' | 'scatter';
-  config: string;
-  queryId: string;
-  query?: Query;
+  type: 'table' | 'line' | 'bar' | 'horizontal_bar' | 'stacked_bar' | 'grouped_bar' | 'pie' | 'donut' | 'area' | 'stacked_area' | 'scatter' | 'bubble' | 'heatmap' | 'treemap' | 'sunburst' | 'sankey' | 'funnel' | 'radar' | 'gauge' | 'candlestick' | 'boxplot' | 'waterfall';
+  config: any;
+  query: string;
+  query_details?: Query;
   createdAt: string;
   updatedAt: string;
 }
