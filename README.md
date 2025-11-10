@@ -11,15 +11,16 @@ A lightweight, self-hosted business intelligence tool inspired by Metabase. Vizl
 - **User Management**: Built-in authentication and authorization
 - **Self-Hosted**: Full control over your data and infrastructure
 - **Minimal Setup**: Easy to deploy with Docker
+- **Python-Powered**: Leverage Python's data ecosystem for analytics
 
 ## Tech Stack
 
 ### Backend
-- Node.js + TypeScript
-- Express.js
-- Prisma ORM
-- SQLite (internal database)
-- JWT authentication
+- Django 5.0 + Python 3.10+
+- Django REST Framework
+- SimpleJWT (JWT authentication)
+- Django ORM + SQLAlchemy
+- pandas for data processing
 
 ### Frontend
 - React 18 + TypeScript
@@ -31,8 +32,9 @@ A lightweight, self-hosted business intelligence tool inspired by Metabase. Vizl
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- npm or yarn
+- Python 3.10+
+- Node.js 18+ (for frontend)
+- pip
 - Docker (optional, for containerized deployment)
 
 ### Local Development
@@ -46,15 +48,17 @@ cd vizly
 2. **Backend Setup**
 ```bash
 cd backend
-npm install
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your configuration
-npm run prisma:generate
-npm run prisma:migrate
-npm run dev
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-3. **Frontend Setup**
+3. **Frontend Setup** (in a new terminal)
 ```bash
 cd frontend
 npm install
@@ -63,7 +67,8 @@ npm run dev
 
 The application will be available at:
 - Frontend: http://localhost:5173
-- Backend API: http://localhost:3001
+- Backend API: http://localhost:8000
+- Django Admin: http://localhost:8000/admin
 
 ### Docker Deployment
 
@@ -75,27 +80,22 @@ docker-compose up -d
 
 ```
 vizly/
-├── backend/                 # Backend API server
-│   ├── src/
-│   │   ├── config/         # Configuration files
-│   │   ├── controllers/    # Route controllers
-│   │   ├── middleware/     # Express middleware
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Business logic
-│   │   └── index.ts        # Entry point
-│   └── prisma/
-│       └── schema.prisma   # Database schema
+├── backend/                 # Django backend
+│   ├── vizly/              # Main project settings
+│   ├── api/                # User authentication app
+│   ├── connections/        # Database connections app
+│   ├── queries/            # SQL queries app
+│   ├── visualizations/     # Charts app
+│   ├── dashboards/         # Dashboards app
+│   └── manage.py           # Django management
 │
-├── frontend/               # React frontend
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── pages/         # Page components
-│   │   ├── services/      # API services
-│   │   ├── stores/        # Zustand stores
-│   │   └── types/         # TypeScript types
-│   └── public/
-│
-└── docker-compose.yml      # Docker setup
+└── frontend/               # React frontend
+    ├── src/
+    │   ├── components/    # React components
+    │   ├── pages/         # Page components
+    │   ├── services/      # API services
+    │   └── stores/        # Zustand stores
+    └── package.json
 ```
 
 ## API Documentation
@@ -106,34 +106,34 @@ vizly/
 - `GET /api/auth/me` - Get current user
 
 ### Connections
-- `POST /api/connections` - Create database connection
-- `GET /api/connections` - List all connections
-- `GET /api/connections/:id` - Get connection details
-- `PUT /api/connections/:id` - Update connection
-- `DELETE /api/connections/:id` - Delete connection
-- `POST /api/connections/:id/test` - Test connection
+- `POST /api/connections/` - Create database connection
+- `GET /api/connections/` - List all connections
+- `GET /api/connections/{id}/` - Get connection details
+- `PUT /api/connections/{id}/` - Update connection
+- `DELETE /api/connections/{id}/` - Delete connection
+- `POST /api/connections/{id}/test/` - Test connection
 
 ### Queries
-- `POST /api/queries` - Create query
-- `GET /api/queries` - List all queries
-- `GET /api/queries/:id` - Get query details
-- `PUT /api/queries/:id` - Update query
-- `DELETE /api/queries/:id` - Delete query
-- `POST /api/queries/:id/execute` - Execute query
+- `POST /api/queries/` - Create query
+- `GET /api/queries/` - List all queries
+- `GET /api/queries/{id}/` - Get query details
+- `PUT /api/queries/{id}/` - Update query
+- `DELETE /api/queries/{id}/` - Delete query
+- `POST /api/queries/{id}/execute/` - Execute query
 
 ### Visualizations
-- `POST /api/visualizations` - Create visualization
-- `GET /api/visualizations` - List all visualizations
-- `GET /api/visualizations/:id` - Get visualization
-- `PUT /api/visualizations/:id` - Update visualization
-- `DELETE /api/visualizations/:id` - Delete visualization
+- `POST /api/visualizations/` - Create visualization
+- `GET /api/visualizations/` - List all visualizations
+- `GET /api/visualizations/{id}/` - Get visualization
+- `PUT /api/visualizations/{id}/` - Update visualization
+- `DELETE /api/visualizations/{id}/` - Delete visualization
 
 ### Dashboards
-- `POST /api/dashboards` - Create dashboard
-- `GET /api/dashboards` - List all dashboards
-- `GET /api/dashboards/:id` - Get dashboard
-- `PUT /api/dashboards/:id` - Update dashboard
-- `DELETE /api/dashboards/:id` - Delete dashboard
+- `POST /api/dashboards/` - Create dashboard
+- `GET /api/dashboards/` - List all dashboards
+- `GET /api/dashboards/{id}/` - Get dashboard
+- `PUT /api/dashboards/{id}/` - Update dashboard
+- `DELETE /api/dashboards/{id}/` - Delete dashboard
 
 ## Configuration
 
@@ -142,23 +142,29 @@ vizly/
 Create a `.env` file in the `backend` directory:
 
 ```env
-PORT=3001
-NODE_ENV=development
-DATABASE_URL="file:./vizly.db"
-JWT_SECRET=your-secret-key-change-this-in-production
-CORS_ORIGIN=http://localhost:5173
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
+SECRET_KEY=your-secret-key-change-this-in-production
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
+
+## Why Django?
+
+Vizly uses Django because it's ideal for data-intensive applications:
+
+- **Python Ecosystem**: Access to pandas, numpy, and other data science libraries
+- **Mature ORM**: Battle-tested database abstraction with migrations
+- **Built-in Admin**: Instant admin interface for data management
+- **Security**: CSRF, XSS, SQL injection protection out-of-the-box
+- **Scalability**: Production-proven for data-heavy applications
 
 ## Security
 
-- Passwords are hashed using bcrypt
+- Passwords are hashed using Django's default Argon2 hasher
 - JWT tokens for authentication
 - CORS protection
-- Helmet.js for security headers
-- Rate limiting
-- SQL injection prevention via parameterized queries
+- Django security middleware enabled
+- SQL injection prevention via ORM and parameterized queries
 
 ## Development
 
@@ -166,7 +172,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 ```bash
 # Backend tests
 cd backend
-npm test
+python manage.py test
 
 # Frontend tests
 cd frontend
@@ -177,7 +183,9 @@ npm test
 ```bash
 # Backend
 cd backend
-npm run build
+pip install -r requirements.txt
+python manage.py collectstatic
+python manage.py migrate
 
 # Frontend
 cd frontend
@@ -186,7 +194,7 @@ npm run build
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
@@ -202,8 +210,8 @@ MIT License - see LICENSE file for details
 - [ ] CSV/Excel export
 - [ ] Database schema explorer
 - [ ] Multi-user collaboration
-- [ ] API rate limiting per user
 - [ ] Query performance metrics
+- [ ] Data caching layer
 
 ## Support
 
