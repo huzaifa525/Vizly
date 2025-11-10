@@ -1,0 +1,22 @@
+# Django Core
+Django==5.0.1
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+
+# Database
+psycopg2-binary==2.9.9
+mysqlclient==2.2.1
+
+# Security & CORS
+django-cors-headers==4.3.1
+python-decouple==3.8
+
+# Password hashing
+argon2-cffi==23.1.0
+
+# Database connections
+SQLAlchemy==2.0.25
+pandas==2.2.0
+
+# Development
+python-dotenv==1.0.1
