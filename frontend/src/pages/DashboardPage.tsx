@@ -27,9 +27,10 @@ const DashboardPage = () => {
     try {
       setLoading(true);
       const data = await dashboardsAPI.getAll();
-      setDashboards(data);
+      setDashboards(Array.isArray(data) ? data : []);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load dashboards');
+      setDashboards([]);
     } finally {
       setLoading(false);
     }

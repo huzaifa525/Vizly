@@ -1,14 +1,38 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, Trash2, Edit2, Eye } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart3, Trash2, Edit2, Eye, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import Table from '../components/Table';
+import ChartRenderer from '../components/ChartRenderer';
+import AdvancedTable from '../components/AdvancedTable';
 import { Visualization, Query } from '../types';
 import { visualizationsAPI } from '../services/visualizations';
 import { queriesAPI } from '../services/queries';
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const CHART_TYPES = [
+  { value: 'table', label: 'Table', category: 'Table' },
+  { value: 'line', label: 'Line Chart', category: 'Basic' },
+  { value: 'bar', label: 'Bar Chart', category: 'Basic' },
+  { value: 'horizontal_bar', label: 'Horizontal Bar', category: 'Bar' },
+  { value: 'stacked_bar', label: 'Stacked Bar', category: 'Bar' },
+  { value: 'grouped_bar', label: 'Grouped Bar', category: 'Bar' },
+  { value: 'pie', label: 'Pie Chart', category: 'Basic' },
+  { value: 'donut', label: 'Donut Chart', category: 'Basic' },
+  { value: 'area', label: 'Area Chart', category: 'Basic' },
+  { value: 'stacked_area', label: 'Stacked Area', category: 'Area' },
+  { value: 'scatter', label: 'Scatter Plot', category: 'Basic' },
+  { value: 'bubble', label: 'Bubble Chart', category: 'Advanced' },
+  { value: 'heatmap', label: 'Heatmap', category: 'Advanced' },
+  { value: 'treemap', label: 'Treemap', category: 'Advanced' },
+  { value: 'sunburst', label: 'Sunburst', category: 'Advanced' },
+  { value: 'sankey', label: 'Sankey Diagram', category: 'Advanced' },
+  { value: 'funnel', label: 'Funnel Chart', category: 'Advanced' },
+  { value: 'radar', label: 'Radar Chart', category: 'Advanced' },
+  { value: 'gauge', label: 'Gauge', category: 'Advanced' },
+  { value: 'candlestick', label: 'Candlestick', category: 'Financial' },
+  { value: 'boxplot', label: 'Box Plot', category: 'Statistical' },
+  { value: 'waterfall', label: 'Waterfall', category: 'Advanced' },
+];
 
 const VisualizationsPage = () => {
   const [visualizations, setVisualizations] = useState<Visualization[]>([]);
@@ -22,8 +46,8 @@ const VisualizationsPage = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    type: 'bar' as 'table' | 'line' | 'bar' | 'pie' | 'area' | 'scatter',
-    queryId: '',
+    type: 'bar',
+    query: '',
     config: '{}',
   });
 
@@ -38,10 +62,12 @@ const VisualizationsPage = () => {
         visualizationsAPI.getAll(),
         queriesAPI.getAll(),
       ]);
-      setVisualizations(visualizationsData);
-      setQueries(queriesData);
+      setVisualizations(Array.isArray(visualizationsData) ? visualizationsData : []);
+      setQueries(Array.isArray(queriesData) ? queriesData : []);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load data');
+      setVisualizations([]);
+      setQueries([]);
     } finally {
       setLoading(false);
     }
@@ -50,11 +76,26 @@ const VisualizationsPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let config = {};
+      try {
+        config = JSON.parse(formData.config);
+      } catch {
+        toast.error('Invalid JSON in configuration');
+        return;
+      }
+
+      const payload: Partial<Visualization> = {
+        name: formData.name,
+        type: formData.type as Visualization['type'],
+        query: formData.query,
+        config,
+      };
+
       if (editingVisualization) {
-        await visualizationsAPI.update(editingVisualization.id, formData);
+        await visualizationsAPI.update(editingVisualization.id, payload);
         toast.success('Visualization updated successfully');
       } else {
-        await visualizationsAPI.create(formData);
+        await visualizationsAPI.create(payload);
         toast.success('Visualization created successfully');
       }
       setIsModalOpen(false);
@@ -70,8 +111,8 @@ const VisualizationsPage = () => {
     setFormData({
       name: visualization.name,
       type: visualization.type,
-      queryId: visualization.queryId,
-      config: visualization.config,
+      query: visualization.query,
+      config: JSON.stringify(visualization.config || {}, null, 2),
     });
     setIsModalOpen(true);
   };
@@ -79,7 +120,7 @@ const VisualizationsPage = () => {
   const handleView = async (visualization: Visualization) => {
     try {
       setViewingVisualization(visualization);
-      const result = await queriesAPI.execute(visualization.queryId);
+      const result = await queriesAPI.execute(visualization.query);
       setQueryResult(result);
       setIsViewModalOpen(true);
     } catch (error: any) {
@@ -103,7 +144,7 @@ const VisualizationsPage = () => {
     setFormData({
       name: '',
       type: 'bar',
-      queryId: '',
+      query: '',
       config: '{}',
     });
     setEditingVisualization(null);
@@ -114,100 +155,18 @@ const VisualizationsPage = () => {
     setIsModalOpen(true);
   };
 
-  const renderChart = (type: string, data: any[]) => {
-    if (!data || data.length === 0) {
+  const renderVisualization = () => {
+    if (!viewingVisualization || !queryResult || !queryResult.rows) {
       return <div className="text-center py-8 text-gray-500">No data available</div>;
     }
 
-    const dataKeys = Object.keys(data[0] || {});
-    const xKey = dataKeys[0];
-    const yKeys = dataKeys.slice(1);
+    const config = viewingVisualization.config || {};
 
-    switch (type) {
-      case 'line':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xKey} />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {yKeys.map((key, index) => (
-                <Line key={key} type="monotone" dataKey={key} stroke={COLORS[index % COLORS.length]} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        );
-
-      case 'bar':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xKey} />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {yKeys.map((key, index) => (
-                <Bar key={key} dataKey={key} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        );
-
-      case 'area':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xKey} />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {yKeys.map((key, index) => (
-                <Area key={key} type="monotone" dataKey={key} fill={COLORS[index % COLORS.length]} stroke={COLORS[index % COLORS.length]} />
-              ))}
-            </AreaChart>
-          </ResponsiveContainer>
-        );
-
-      case 'pie':
-        const pieData = data.map((item) => ({
-          name: item[xKey],
-          value: item[yKeys[0]],
-        }));
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label>
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        );
-
-      case 'scatter':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xKey} />
-              <YAxis dataKey={yKeys[0]} />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-              <Legend />
-              <Scatter name={yKeys[0]} data={data} fill={COLORS[0]} />
-            </ScatterChart>
-          </ResponsiveContainer>
-        );
-
-      default:
-        return <div>Unsupported chart type</div>;
+    if (viewingVisualization.type === 'table') {
+      return <AdvancedTable data={queryResult.rows} config={config} />;
     }
+
+    return <ChartRenderer type={viewingVisualization.type} data={queryResult.rows} config={config} />;
   };
 
   const columns = [
@@ -215,16 +174,19 @@ const VisualizationsPage = () => {
     {
       key: 'type',
       label: 'Type',
-      render: (value: string) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-          {value}
-        </span>
-      )
+      render: (value: string) => {
+        const chartType = CHART_TYPES.find((ct) => ct.value === value);
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+            {chartType?.label || value}
+          </span>
+        );
+      },
     },
     {
       key: 'query',
       label: 'Query',
-      render: (_: any, row: Visualization) => row.query?.name || '-'
+      render: (_: any, row: Visualization) => row.query_details?.name || '-',
     },
     {
       key: 'actions',
@@ -257,6 +219,15 @@ const VisualizationsPage = () => {
     },
   ];
 
+  // Group chart types by category
+  const groupedChartTypes = CHART_TYPES.reduce((acc, chart) => {
+    if (!acc[chart.category]) {
+      acc[chart.category] = [];
+    }
+    acc[chart.category].push(chart);
+    return acc;
+  }, {} as Record<string, typeof CHART_TYPES>);
+
   return (
     <div className="px-4 py-6 sm:px-0">
       <div className="flex justify-between items-center mb-6">
@@ -268,8 +239,9 @@ const VisualizationsPage = () => {
         </div>
         <button
           onClick={openCreateModal}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+          className="inline-flex items-center gap-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
         >
+          <Plus size={16} />
           Create Visualization
         </button>
       </div>
@@ -314,15 +286,18 @@ const VisualizationsPage = () => {
             <select
               required
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
             >
-              <option value="bar">Bar Chart</option>
-              <option value="line">Line Chart</option>
-              <option value="area">Area Chart</option>
-              <option value="pie">Pie Chart</option>
-              <option value="scatter">Scatter Plot</option>
-              <option value="table">Table</option>
+              {Object.entries(groupedChartTypes).map(([category, charts]) => (
+                <optgroup key={category} label={category}>
+                  {charts.map((chart) => (
+                    <option key={chart.value} value={chart.value}>
+                      {chart.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
           </div>
 
@@ -332,8 +307,8 @@ const VisualizationsPage = () => {
             </label>
             <select
               required
-              value={formData.queryId}
-              onChange={(e) => setFormData({ ...formData, queryId: e.target.value })}
+              value={formData.query}
+              onChange={(e) => setFormData({ ...formData, query: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="">Select Query</option>
@@ -343,6 +318,22 @@ const VisualizationsPage = () => {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Configuration (JSON)
+            </label>
+            <textarea
+              value={formData.config}
+              onChange={(e) => setFormData({ ...formData, config: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
+              rows={5}
+              placeholder='{"xAxis": "column_name", "yAxis": ["value1", "value2"], "title": "My Chart"}'
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Optional: Configure chart axes and display options
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -375,12 +366,10 @@ const VisualizationsPage = () => {
           setQueryResult(null);
         }}
         title={viewingVisualization?.name || 'Visualization'}
-        size="xl"
+        size="full"
       >
-        <div className="p-4">
-          {viewingVisualization && queryResult && (
-            renderChart(viewingVisualization.type, queryResult.rows)
-          )}
+        <div className="p-4" style={{ height: '80vh' }}>
+          {renderVisualization()}
         </div>
       </Modal>
     </div>

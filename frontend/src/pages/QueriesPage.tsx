@@ -25,7 +25,7 @@ const QueriesPage = () => {
     name: '',
     description: '',
     sql: '',
-    connectionId: '',
+    connection: '',
   });
 
   useEffect(() => {
@@ -84,7 +84,7 @@ const QueriesPage = () => {
       name: '',
       description: '',
       sql: sqlCode,
-      connectionId: selectedConnectionId,
+      connection: selectedConnectionId,
     });
     setIsModalOpen(true);
   };
@@ -109,7 +109,7 @@ const QueriesPage = () => {
 
   const handleLoadQuery = (query: Query) => {
     setSqlCode(query.sql);
-    setSelectedConnectionId(query.connectionId);
+    setSelectedConnectionId(query.connection);
     setQueryResult(null);
     toast.success('Query loaded');
   };
@@ -120,7 +120,7 @@ const QueriesPage = () => {
       name: query.name,
       description: query.description || '',
       sql: query.sql,
-      connectionId: query.connectionId,
+      connection: query.connection,
     });
     setIsModalOpen(true);
   };
@@ -142,7 +142,7 @@ const QueriesPage = () => {
       name: '',
       description: '',
       sql: '',
-      connectionId: '',
+      connection: '',
     });
     setEditingQuery(null);
   };
@@ -153,7 +153,7 @@ const QueriesPage = () => {
     {
       key: 'connection',
       label: 'Connection',
-      render: (_: any, row: Query) => row.connection?.name || '-'
+      render: (_: any, row: Query) => row.connection_details?.name || '-'
     },
     {
       key: 'actions',
@@ -326,8 +326,8 @@ const QueriesPage = () => {
             </label>
             <select
               required
-              value={formData.connectionId}
-              onChange={(e) => setFormData({ ...formData, connectionId: e.target.value })}
+              value={formData.connection}
+              onChange={(e) => setFormData({ ...formData, connection: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="">Select Connection</option>

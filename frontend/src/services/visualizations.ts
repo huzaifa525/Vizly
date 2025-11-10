@@ -4,22 +4,22 @@ import { Visualization } from '../types';
 export const visualizationsAPI = {
   getAll: async (): Promise<Visualization[]> => {
     const response = await api.get('/visualizations/');
-    return response.data;
+    return response.data.data?.visualizations || response.data;
   },
 
   getById: async (id: string): Promise<Visualization> => {
     const response = await api.get(`/visualizations/${id}/`);
-    return response.data;
+    return response.data.data?.visualization || response.data;
   },
 
   create: async (data: Partial<Visualization>): Promise<Visualization> => {
     const response = await api.post('/visualizations/', data);
-    return response.data;
+    return response.data.data?.visualization || response.data;
   },
 
   update: async (id: string, data: Partial<Visualization>): Promise<Visualization> => {
     const response = await api.put(`/visualizations/${id}/`, data);
-    return response.data;
+    return response.data.data?.visualization || response.data;
   },
 
   delete: async (id: string): Promise<void> => {

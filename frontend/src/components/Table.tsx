@@ -16,7 +16,10 @@ const Table = ({ columns, data, loading = false, emptyMessage = 'No data availab
     );
   }
 
-  if (data.length === 0) {
+  // Ensure data is an array
+  const safeData = Array.isArray(data) ? data : [];
+
+  if (safeData.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         {emptyMessage}
@@ -40,7 +43,7 @@ const Table = ({ columns, data, loading = false, emptyMessage = 'No data availab
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          {data.map((row, index) => (
+          {safeData.map((row, index) => (
             <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
               {columns.map((column) => (
                 <td
