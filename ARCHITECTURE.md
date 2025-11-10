@@ -6,16 +6,18 @@ Vizly is a lightweight, self-hosted business intelligence tool built with modern
 ## Technology Stack
 
 ### Backend
-- **Runtime**: Node.js 18+
-- **Framework**: Express.js
-- **Language**: TypeScript
-- **ORM**: Prisma
+- **Framework**: Django 5.0+
+- **API**: Django REST Framework
+- **Language**: Python 3.10+
+- **ORM**: Django ORM
+- **Authentication**: SimpleJWT (JWT tokens)
 - **Internal Database**: SQLite (production can use PostgreSQL)
-- **API**: RESTful API
 - **Database Drivers**:
-  - PostgreSQL (pg)
-  - MySQL (mysql2)
-  - SQLite (better-sqlite3)
+  - PostgreSQL (psycopg2)
+  - MySQL (mysqlclient)
+  - SQLite (built-in)
+- **Query Engine**: SQLAlchemy for external database connections
+- **Data Processing**: pandas for advanced analytics
 
 ### Frontend
 - **Framework**: React 18+
@@ -29,35 +31,41 @@ Vizly is a lightweight, self-hosted business intelligence tool built with modern
 
 ### DevOps
 - **Containerization**: Docker + Docker Compose
-- **Environment Management**: dotenv
-- **Process Manager**: PM2 (optional)
+- **Environment Management**: python-decouple
+- **WSGI Server**: Gunicorn (production)
 
 ## Project Structure
 
 ```
 vizly/
-├── backend/                 # Backend API server
-│   ├── src/
-│   │   ├── config/         # Configuration files
-│   │   ├── controllers/    # Route controllers
-│   │   ├── middleware/     # Express middleware
-│   │   ├── models/         # Prisma models
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Business logic
-│   │   ├── utils/          # Utility functions
-│   │   └── index.ts        # Entry point
-│   ├── prisma/
-│   │   └── schema.prisma   # Database schema
-│   ├── package.json
-│   └── tsconfig.json
+├── backend/                 # Django backend
+│   ├── vizly/              # Main project settings
+│   │   ├── settings.py     # Django settings
+│   │   ├── urls.py         # Main URL config
+│   │   └── wsgi.py         # WSGI entry point
+│   ├── api/                # User authentication app
+│   │   ├── models.py       # User model
+│   │   ├── serializers.py  # User serializers
+│   │   ├── views.py        # Auth views
+│   │   └── urls.py         # Auth URLs
+│   ├── connections/        # Database connections app
+│   │   ├── models.py       # Connection model
+│   │   ├── serializers.py  # Connection serializers
+│   │   ├── views.py        # Connection views
+│   │   ├── services.py     # Database services
+│   │   └── urls.py         # Connection URLs
+│   ├── queries/            # SQL queries app
+│   ├── visualizations/     # Charts app
+│   ├── dashboards/         # Dashboards app
+│   ├── manage.py           # Django management
+│   └── requirements.txt    # Python dependencies
 │
 ├── frontend/               # React frontend
 │   ├── src/
 │   │   ├── components/    # React components
 │   │   ├── pages/         # Page components
-│   │   ├── hooks/         # Custom hooks
 │   │   ├── services/      # API services
-│   │   ├── utils/         # Utility functions
+│   │   ├── stores/        # Zustand stores
 │   │   ├── types/         # TypeScript types
 │   │   ├── App.tsx        # Main app component
 │   │   └── main.tsx       # Entry point
