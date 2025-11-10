@@ -6,6 +6,7 @@ djangorestframework-simplejwt==5.3.1
 # Database
 psycopg2-binary==2.9.9
 mysqlclient==2.2.1
+dj-database-url==2.1.0
 
 # Security & CORS
 django-cors-headers==4.3.1

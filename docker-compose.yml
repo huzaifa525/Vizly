@@ -10,12 +10,11 @@ services:
       - SECRET_KEY=${SECRET_KEY:-change-this-secret-key-in-production}
       - ALLOWED_HOSTS=localhost,127.0.0.1,backend
       - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-      - DATABASE_URL=postgresql://neondb_owner:npg_2SRuHdoqz5QN@ep-square-bread-a1b6r7nn-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - DATABASE_URL=postgresql://neondb_owner:npg_fmyYJR2eht6Z@ep-hidden-queen-a1eqrr5n-pooler.ap-southeast-1.aws.neon.tech/vizly?sslmode=require
     volumes:
       - vizly-data:/app/data
       - ./backend:/app
-    # Temporarily skip migrations to fix database
-    command: sh -c "gunicorn vizly.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+    command: sh -c "python manage.py migrate && gunicorn vizly.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 300 --log-level debug"
     restart: unless-stopped
 
   frontend:
@@ -24,7 +23,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
