@@ -4,6 +4,8 @@ URL configuration for Vizly project.
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.conf import settings
+from django.conf.urls.static import static
 
 
 def health_check(request):
@@ -23,3 +25,7 @@ urlpatterns = [
     path('api/dashboards/', include('dashboards.urls')),
     path('api/visualizations/', include('visualizations.urls')),
 ]
+
+# Serve static files in all modes (including with gunicorn)
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
