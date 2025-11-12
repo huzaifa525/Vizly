@@ -2,10 +2,15 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+import logging
 from .models import Query
 from .serializers import QuerySerializer
 from connections.models import Connection
 from connections.services import execute_query
+
+logger = logging.getLogger('queries')
 
 
 class QueryViewSet(viewsets.ModelViewSet):
@@ -85,27 +90,35 @@ class QueryViewSet(viewsets.ModelViewSet):
                 'message': 'Query not found'
             }, status=status.HTTP_404_NOT_FOUND)
 
+    @method_decorator(ratelimit(key='user', rate='30/m', method='POST'))
     @action(detail=True, methods=['post'])
     def execute(self, request, pk=None):
         """Execute the SQL query"""
         try:
             query = self.get_queryset().get(pk=pk)
+            logger.info(f'User {request.user.id} executing query {pk} on connection {query.connection.name}')
+
             result = execute_query(query.connection, query.sql)
+
+            logger.info(f'Query {pk} executed successfully, returned {result.get("rowCount", 0)} rows')
             return Response({
                 'status': 'success',
                 'data': result
             })
         except Query.DoesNotExist:
+            logger.warning(f'Query {pk} not found for user {request.user.id}')
             return Response({
                 'status': 'error',
                 'message': 'Query not found'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f'Query {pk} execution failed for user {request.user.id}: {str(e)}')
             return Response({
                 'status': 'error',
                 'message': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @method_decorator(ratelimit(key='user', rate='30/m', method='POST'))
     @action(detail=False, methods=['post'])
     def execute_raw(self, request):
         """Execute raw SQL query"""
@@ -114,23 +127,31 @@ class QueryViewSet(viewsets.ModelViewSet):
             sql = request.data.get('sql')
 
             if not connection_id or not sql:
+                logger.warning(f'User {request.user.id} attempted raw query without required fields')
                 return Response({
                     'status': 'error',
                     'message': 'connection_id and sql are required'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             connection = Connection.objects.get(pk=connection_id, user=request.user)
+            logger.info(f'User {request.user.id} executing raw query on connection {connection.name}')
+            logger.debug(f'SQL: {sql[:200]}...')  # Log first 200 chars of SQL
+
             result = execute_query(connection, sql)
+
+            logger.info(f'Raw query executed successfully, returned {result.get("rowCount", 0)} rows')
             return Response({
                 'status': 'success',
                 'data': result
             })
         except Connection.DoesNotExist:
+            logger.warning(f'Connection {connection_id} not found for user {request.user.id}')
             return Response({
                 'status': 'error',
                 'message': 'Connection not found'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f'Raw query execution failed for user {request.user.id}: {str(e)}')
             return Response({
                 'status': 'error',
                 'message': str(e)

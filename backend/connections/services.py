@@ -35,10 +35,14 @@ def execute_query(connection, sql):
             result = conn.execute(text(sql))
 
             if result.returns_rows:
-                columns = [{'name': col, 'type': str(type(val))} for col, val in zip(result.keys(), next(result, []))]
-                conn.execute(text(sql))  # Re-execute to get all rows
-                result = conn.execute(text(sql))
+                # Fetch all rows at once to avoid multiple query executions
                 rows = [dict(row._mapping) for row in result]
+
+                # Get column information from result keys
+                if rows:
+                    columns = [{'name': col, 'type': 'string'} for col in result.keys()]
+                else:
+                    columns = [{'name': col, 'type': 'string'} for col in result.keys()]
 
                 return {
                     'columns': columns,
