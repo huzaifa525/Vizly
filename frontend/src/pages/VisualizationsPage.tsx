@@ -1,13 +1,24 @@
-import { useState, useEffect } from 'react';
-import { BarChart3, Trash2, Edit2, Eye, Plus } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { BarChart3, Plus, Edit2, Trash2, Eye, TrendingUp } from 'lucide-react';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import Modal from '../components/Modal';
-import Table from '../components/Table';
 import ChartRenderer from '../components/ChartRenderer';
 import AdvancedTable from '../components/AdvancedTable';
+import { Button } from '../components/ui/Button';
+import { Card, CardBody, CardHeader, CardTitle } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Input, Textarea, Select } from '../components/ui/Input';
 import { Visualization, Query } from '../types';
 import { visualizationsAPI } from '../services/visualizations';
 import { queriesAPI } from '../services/queries';
+import { formatDateTime } from '../lib/utils';
 
 const CHART_TYPES = [
   { value: 'table', label: 'Table', category: 'Table' },
@@ -34,81 +45,139 @@ const CHART_TYPES = [
   { value: 'waterfall', label: 'Waterfall', category: 'Advanced' },
 ];
 
+// Group chart types by category for select
+const groupedChartTypes = CHART_TYPES.reduce((acc, chart) => {
+  if (!acc[chart.category]) {
+    acc[chart.category] = [];
+  }
+  acc[chart.category].push(chart);
+  return acc;
+}, {} as Record<string, typeof CHART_TYPES>);
+
+const visualizationSchema = z.object({
+  name: z.string().min(1, 'Visualization name is required').max(100),
+  type: z.string().min(1, 'Chart type is required'),
+  query: z.string().min(1, 'Query is required'),
+  config: z.string().optional().refine((val) => {
+    if (!val || val.trim() === '') return true;
+    try {
+      JSON.parse(val);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Configuration must be valid JSON'),
+});
+
+type VisualizationFormData = z.infer<typeof visualizationSchema>;
+
 const VisualizationsPage = () => {
-  const [visualizations, setVisualizations] = useState<Visualization[]>([]);
-  const [queries, setQueries] = useState<Query[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingVisualization, setEditingVisualization] = useState<Visualization | null>(null);
   const [viewingVisualization, setViewingVisualization] = useState<Visualization | null>(null);
   const [queryResult, setQueryResult] = useState<any>(null);
+  const [executingQuery, setExecutingQuery] = useState(false);
+  const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'bar',
-    query: '',
-    config: '{}',
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<VisualizationFormData>({
+    resolver: zodResolver(visualizationSchema),
+    defaultValues: {
+      name: '',
+      type: 'bar',
+      query: '',
+      config: '{}',
+    },
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Fetch visualizations
+  const { data: visualizations = [], isLoading: visualizationsLoading } = useQuery({
+    queryKey: ['visualizations'],
+    queryFn: async () => {
+      const response = await visualizationsAPI.getAll();
+      return Array.isArray(response) ? response : [];
+    },
+  });
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [visualizationsData, queriesData] = await Promise.all([
-        visualizationsAPI.getAll(),
-        queriesAPI.getAll(),
-      ]);
-      setVisualizations(Array.isArray(visualizationsData) ? visualizationsData : []);
-      setQueries(Array.isArray(queriesData) ? queriesData : []);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load data');
-      setVisualizations([]);
-      setQueries([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch queries
+  const { data: queries = [], isLoading: queriesLoading } = useQuery({
+    queryKey: ['queries'],
+    queryFn: async () => {
+      const response = await queriesAPI.getAll();
+      return Array.isArray(response) ? response : [];
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      let config = {};
-      try {
-        config = JSON.parse(formData.config);
-      } catch {
-        toast.error('Invalid JSON in configuration');
-        return;
-      }
-
-      const payload: Partial<Visualization> = {
-        name: formData.name,
-        type: formData.type as Visualization['type'],
-        query: formData.query,
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data: VisualizationFormData) => {
+      const config = data.config ? JSON.parse(data.config) : {};
+      return visualizationsAPI.create({
+        name: data.name,
+        type: data.type as Visualization['type'],
+        query: data.query,
         config,
-      };
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visualizations'] });
+      toast.success('Visualization created successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create visualization');
+    },
+  });
 
-      if (editingVisualization) {
-        await visualizationsAPI.update(editingVisualization.id, payload);
-        toast.success('Visualization updated successfully');
-      } else {
-        await visualizationsAPI.create(payload);
-        toast.success('Visualization created successfully');
-      }
-      setIsModalOpen(false);
-      resetForm();
-      loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save visualization');
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: VisualizationFormData }) => {
+      const config = data.config ? JSON.parse(data.config) : {};
+      return visualizationsAPI.update(id, {
+        name: data.name,
+        type: data.type as Visualization['type'],
+        query: data.query,
+        config,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visualizations'] });
+      toast.success('Visualization updated successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update visualization');
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => visualizationsAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visualizations'] });
+      toast.success('Visualization deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete visualization');
+    },
+  });
+
+  const onSubmit = (data: VisualizationFormData) => {
+    if (editingVisualization) {
+      updateMutation.mutate({ id: editingVisualization.id, data });
+    } else {
+      createMutation.mutate(data);
     }
   };
 
   const handleEdit = (visualization: Visualization) => {
     setEditingVisualization(visualization);
-    setFormData({
+    reset({
       name: visualization.name,
       type: visualization.type,
       query: visualization.query,
@@ -118,46 +187,72 @@ const VisualizationsPage = () => {
   };
 
   const handleView = async (visualization: Visualization) => {
+    setViewingVisualization(visualization);
+    setExecutingQuery(true);
+    setIsViewModalOpen(true);
+
     try {
-      setViewingVisualization(visualization);
       const result = await queriesAPI.execute(visualization.query);
       setQueryResult(result);
-      setIsViewModalOpen(true);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to execute query');
+      setQueryResult(null);
+    } finally {
+      setExecutingQuery(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this visualization?')) return;
-
-    try {
-      await visualizationsAPI.delete(id);
-      toast.success('Visualization deleted successfully');
-      loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete visualization');
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+      deleteMutation.mutate(id);
     }
   };
 
-  const resetForm = () => {
-    setFormData({
+  const openCreateModal = () => {
+    setEditingVisualization(null);
+    reset({
       name: '',
       type: 'bar',
       query: '',
       config: '{}',
     });
-    setEditingVisualization(null);
-  };
-
-  const openCreateModal = () => {
-    resetForm();
     setIsModalOpen(true);
   };
 
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingVisualization(null);
+    reset();
+  };
+
+  const closeViewModal = () => {
+    setIsViewModalOpen(false);
+    setViewingVisualization(null);
+    setQueryResult(null);
+  };
+
   const renderVisualization = () => {
+    if (executingQuery) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">Loading visualization...</p>
+          </div>
+        </div>
+      );
+    }
+
     if (!viewingVisualization || !queryResult || !queryResult.rows) {
-      return <div className="text-center py-8 text-gray-500">No data available</div>;
+      return (
+        <div className="flex items-center justify-center h-full">
+          <EmptyState
+            icon={<BarChart3 className="w-12 h-12" />}
+            title="No data available"
+            description="Unable to load visualization data"
+          />
+        </div>
+      );
     }
 
     const config = viewingVisualization.config || {};
@@ -169,202 +264,192 @@ const VisualizationsPage = () => {
     return <ChartRenderer type={viewingVisualization.type} data={queryResult.rows} config={config} />;
   };
 
-  const columns = [
-    { key: 'name', label: 'Name' },
-    {
-      key: 'type',
-      label: 'Type',
-      render: (value: string) => {
-        const chartType = CHART_TYPES.find((ct) => ct.value === value);
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-            {chartType?.label || value}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'query',
-      label: 'Query',
-      render: (_: any, row: Visualization) => row.query_details?.name || '-',
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (_: any, row: Visualization) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleView(row)}
-            className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-            title="View"
-          >
-            <Eye size={18} />
-          </button>
-          <button
-            onClick={() => handleEdit(row)}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            title="Edit"
-          >
-            <Edit2 size={18} />
-          </button>
-          <button
-            onClick={() => handleDelete(row.id)}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            title="Delete"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
-      ),
-    },
-  ];
+  const getChartTypeLabel = (type: string) => {
+    const chartType = CHART_TYPES.find((ct) => ct.value === type);
+    return chartType?.label || type;
+  };
 
-  // Group chart types by category
-  const groupedChartTypes = CHART_TYPES.reduce((acc, chart) => {
-    if (!acc[chart.category]) {
-      acc[chart.category] = [];
-    }
-    acc[chart.category].push(chart);
-    return acc;
-  }, {} as Record<string, typeof CHART_TYPES>);
+  const loadingState = visualizationsLoading || queriesLoading;
 
-  return (
-    <div className="px-4 py-6 sm:px-0">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <BarChart3 size={28} className="text-purple-600" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Visualizations
-          </h1>
+  if (loadingState) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/30 rounded-2xl flex items-center justify-center">
+              <BarChart3 className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+            </div>
+            <div>
+              <h1 className="heading-2">Visualizations</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Create charts and graphs from your data
+              </p>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-        >
-          <Plus size={16} />
-          Create Visualization
-        </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
       </div>
+    );
+  }
 
-      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <Table
-          columns={columns}
-          data={visualizations}
-          loading={loading}
-          emptyMessage="No visualizations yet. Create charts and graphs from your query results."
+  if (!loadingState && visualizations.length === 0) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/30 rounded-2xl flex items-center justify-center">
+              <BarChart3 className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+            </div>
+            <div>
+              <h1 className="heading-2">Visualizations</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Create charts and graphs from your data
+              </p>
+            </div>
+          </div>
+          <Button onClick={openCreateModal} leftIcon={<Plus className="h-4 w-4" />}>
+            Create Visualization
+          </Button>
+        </div>
+
+        <Card className="border-2 border-dashed">
+          <CardBody>
+            <EmptyState
+              icon={<TrendingUp className="w-16 h-16" />}
+              title="No visualizations"
+              description="Create your first visualization to turn query results into beautiful charts and graphs."
+              action={
+                <Button onClick={openCreateModal} leftIcon={<Plus className="h-4 w-4" />}>
+                  Create Visualization
+                </Button>
+              }
+            />
+          </CardBody>
+        </Card>
+
+        <VisualizationModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          onSubmit={handleSubmit(onSubmit)}
+          register={register}
+          errors={errors}
+          isSubmitting={isSubmitting || createMutation.isPending}
+          isEditing={!!editingVisualization}
+          queries={queries}
+          groupedChartTypes={groupedChartTypes}
         />
       </div>
+    );
+  }
 
-      {/* Create/Edit Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          resetForm();
-        }}
-        title={editingVisualization ? 'Edit Visualization' : 'New Visualization'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Visualization Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-              placeholder="My Chart"
-            />
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/30 rounded-2xl flex items-center justify-center">
+            <BarChart3 className="h-6 w-6 text-brand-600 dark:text-brand-400" />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Chart Type *
-            </label>
-            <select
-              required
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-            >
-              {Object.entries(groupedChartTypes).map(([category, charts]) => (
-                <optgroup key={category} label={category}>
-                  {charts.map((chart) => (
-                    <option key={chart.value} value={chart.value}>
-                      {chart.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Query *
-            </label>
-            <select
-              required
-              value={formData.query}
-              onChange={(e) => setFormData({ ...formData, query: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="">Select Query</option>
-              {queries.map((query) => (
-                <option key={query.id} value={query.id}>
-                  {query.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Configuration (JSON)
-            </label>
-            <textarea
-              value={formData.config}
-              onChange={(e) => setFormData({ ...formData, config: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
-              rows={5}
-              placeholder='{"xAxis": "column_name", "yAxis": ["value1", "value2"], "title": "My Chart"}'
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Optional: Configure chart axes and display options
+            <h1 className="heading-2">Visualizations</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {visualizations.length} {visualizations.length === 1 ? 'visualization' : 'visualizations'}
             </p>
           </div>
+        </div>
+        <Button onClick={openCreateModal} leftIcon={<Plus className="h-4 w-4" />}>
+          Create Visualization
+        </Button>
+      </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                resetForm();
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-            >
-              {editingVisualization ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {visualizations.map((visualization, index) => (
+          <motion.div
+            key={visualization.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: index * 0.05 }}
+          >
+            <Card hover className="h-full">
+              <CardBody className="flex flex-col h-full">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="truncate mb-2">{visualization.name}</CardTitle>
+                    <Badge variant="primary" className="text-xs">
+                      {getChartTypeLabel(visualization.type)}
+                    </Badge>
+                  </div>
+                  <div className="w-10 h-10 bg-brand-100 dark:bg-brand-900/30 rounded-xl flex items-center justify-center flex-shrink-0 ml-3">
+                    <BarChart3 className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+                  </div>
+                </div>
 
-      {/* View Modal */}
+                <div className="space-y-2 mb-4 text-sm">
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Query:</span>
+                    <span className="truncate">
+                      {visualization.query_details?.name || 'Unknown'}
+                    </span>
+                  </div>
+                  {visualization.updatedAt && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Updated {formatDateTime(visualization.updatedAt)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 mt-auto pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleView(visualization)}
+                    className="flex-1"
+                  >
+                    <Eye className="h-4 w-4" />
+                    <span>View</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(visualization)}
+                    className="text-brand-600 hover:text-brand-700 hover:bg-brand-50 dark:hover:bg-brand-900/20"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(visualization.id, visualization.name)}
+                    className="text-error-600 hover:text-error-700 hover:bg-error-50 dark:hover:bg-error-900/20"
+                    isLoading={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      <VisualizationModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onSubmit={handleSubmit(onSubmit)}
+        register={register}
+        errors={errors}
+        isSubmitting={isSubmitting || createMutation.isPending || updateMutation.isPending}
+        isEditing={!!editingVisualization}
+        queries={queries}
+        groupedChartTypes={groupedChartTypes}
+      />
+
       <Modal
         isOpen={isViewModalOpen}
-        onClose={() => {
-          setIsViewModalOpen(false);
-          setViewingVisualization(null);
-          setQueryResult(null);
-        }}
+        onClose={closeViewModal}
         title={viewingVisualization?.name || 'Visualization'}
         size="full"
       >
@@ -373,6 +458,105 @@ const VisualizationsPage = () => {
         </div>
       </Modal>
     </div>
+  );
+};
+
+interface VisualizationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (e?: React.BaseSyntheticEvent) => void;
+  register: any;
+  errors: any;
+  isSubmitting: boolean;
+  isEditing: boolean;
+  queries: Query[];
+  groupedChartTypes: Record<string, typeof CHART_TYPES>;
+}
+
+const VisualizationModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  register,
+  errors,
+  isSubmitting,
+  isEditing,
+  queries,
+  groupedChartTypes,
+}: VisualizationModalProps) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Edit Visualization' : 'New Visualization'}
+      size="lg"
+    >
+      <form onSubmit={onSubmit} className="space-y-5">
+        <Input
+          label="Visualization Name"
+          placeholder="Sales Overview Chart"
+          error={errors.name?.message}
+          {...register('name')}
+          required
+        />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+            Chart Type <span className="text-error-500">*</span>
+          </label>
+          <select
+            {...register('type')}
+            className={`w-full px-4 py-2.5 rounded-xl border ${
+              errors.type
+                ? 'border-error-300 dark:border-error-600 focus:ring-error-500 focus:border-error-500'
+                : 'border-gray-300 dark:border-gray-600 focus:ring-brand-500 focus:border-brand-500'
+            } bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors`}
+          >
+            {Object.entries(groupedChartTypes).map(([category, charts]) => (
+              <optgroup key={category} label={category}>
+                {charts.map((chart) => (
+                  <option key={chart.value} value={chart.value}>
+                    {chart.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {errors.type && (
+            <p className="error-text mt-1">{errors.type.message}</p>
+          )}
+        </div>
+
+        <Select
+          label="Query"
+          error={errors.query?.message}
+          {...register('query')}
+          required
+          options={queries.map((q) => ({
+            value: q.id,
+            label: q.name,
+          }))}
+        />
+
+        <Textarea
+          label="Configuration (JSON)"
+          placeholder='{"xAxis": "date", "yAxis": ["revenue", "profit"], "title": "Revenue vs Profit"}'
+          error={errors.config?.message}
+          {...register('config')}
+          rows={6}
+          helperText="Optional: Configure chart axes, title, colors, and display options in JSON format"
+        />
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" isLoading={isSubmitting}>
+            {isEditing ? 'Update Visualization' : 'Create Visualization'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 };
 
