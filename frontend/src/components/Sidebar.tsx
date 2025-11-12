@@ -5,6 +5,7 @@ import {
   Database,
   FileCode,
   BarChart3,
+  Book,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -61,6 +62,11 @@ export const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
       name: 'Visualizations',
       path: '/visualizations',
       icon: BarChart3,
+    },
+    {
+      name: 'Documentation',
+      path: '/docs',
+      icon: Book,
     },
   ];
 

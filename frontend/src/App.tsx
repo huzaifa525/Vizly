@@ -9,6 +9,7 @@ import DashboardViewPage from './pages/DashboardViewPage';
 import ConnectionsPage from './pages/ConnectionsPage';
 import QueriesPage from './pages/QueriesPage';
 import VisualizationsPage from './pages/VisualizationsPage';
+import DocsPage from './pages/DocsPage';
 import Layout from './components/Layout';
 
 // Create a query client with default options
@@ -48,6 +49,7 @@ function App() {
             <Route path="connections" element={<ConnectionsPage />} />
             <Route path="queries" element={<QueriesPage />} />
             <Route path="visualizations" element={<VisualizationsPage />} />
+            <Route path="docs" element={<DocsPage />} />
           </Route>
         </Routes>
       </Router>
