@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { useAuthStore } from './stores/authStore';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -8,14 +10,30 @@ import ConnectionsPage from './pages/ConnectionsPage';
 import QueriesPage from './pages/QueriesPage';
 import VisualizationsPage from './pages/VisualizationsPage';
 import Layout from './components/Layout';
-import Toast from './components/Toast';
+
+// Create a query client with default options
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 function App() {
   const { isAuthenticated } = useAuthStore();
 
   return (
-    <>
-      <Toast />
+    <QueryClientProvider client={queryClient}>
+      <Toaster
+        position="top-right"
+        expand={true}
+        richColors
+        closeButton
+        duration={4000}
+      />
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -33,7 +51,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
-    </>
+    </QueryClientProvider>
   );
 }
 
