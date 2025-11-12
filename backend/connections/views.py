@@ -2,9 +2,10 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from sqlalchemy import inspect
 from .models import Connection
 from .serializers import ConnectionSerializer
-from .services import test_database_connection
+from .services import test_database_connection, create_connection_engine
 
 
 class ConnectionViewSet(viewsets.ModelViewSet):
@@ -103,4 +104,78 @@ class ConnectionViewSet(viewsets.ModelViewSet):
             return Response({
                 'status': 'error',
                 'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['get'])
+    def schema(self, request, pk=None):
+        """Get database schema (tables and columns)"""
+        try:
+            connection = self.get_queryset().get(pk=pk)
+            engine = create_connection_engine(connection)
+            inspector = inspect(engine)
+
+            # Get all table names
+            table_names = inspector.get_table_names()
+
+            # Get schema information for each table
+            schema = []
+            for table_name in table_names:
+                columns = []
+                for column in inspector.get_columns(table_name):
+                    columns.append({
+                        'name': column['name'],
+                        'type': str(column['type']),
+                        'nullable': column.get('nullable', True),
+                        'default': str(column.get('default')) if column.get('default') is not None else None,
+                        'primary_key': column.get('primary_key', False),
+                    })
+
+                # Get primary keys
+                pk_constraint = inspector.get_pk_constraint(table_name)
+                primary_keys = pk_constraint.get('constrained_columns', []) if pk_constraint else []
+
+                # Get foreign keys
+                foreign_keys = []
+                for fk in inspector.get_foreign_keys(table_name):
+                    foreign_keys.append({
+                        'columns': fk.get('constrained_columns', []),
+                        'referred_table': fk.get('referred_table'),
+                        'referred_columns': fk.get('referred_columns', []),
+                    })
+
+                # Get indexes
+                indexes = []
+                for idx in inspector.get_indexes(table_name):
+                    indexes.append({
+                        'name': idx.get('name'),
+                        'columns': idx.get('column_names', []),
+                        'unique': idx.get('unique', False),
+                    })
+
+                schema.append({
+                    'name': table_name,
+                    'columns': columns,
+                    'primary_keys': primary_keys,
+                    'foreign_keys': foreign_keys,
+                    'indexes': indexes,
+                    'row_count': None,  # We don't query row counts for performance
+                })
+
+            return Response({
+                'status': 'success',
+                'data': {
+                    'schema': schema,
+                    'table_count': len(schema),
+                }
+            })
+
+        except Connection.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Connection not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': f'Failed to retrieve schema: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
