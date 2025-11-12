@@ -38,4 +38,44 @@ export const queriesAPI = {
     });
     return response.data.data || response.data;
   },
+
+  exportCSV: async (connectionId: string, sql: string, filename: string = 'export'): Promise<void> => {
+    const response = await api.post('/queries/export_csv/', {
+      connection_id: connectionId,
+      sql,
+      filename,
+    }, {
+      responseType: 'blob',
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  exportExcel: async (connectionId: string, sql: string, filename: string = 'export'): Promise<void> => {
+    const response = await api.post('/queries/export_excel/', {
+      connection_id: connectionId,
+      sql,
+      filename,
+    }, {
+      responseType: 'blob',
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${filename}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

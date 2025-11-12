@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Play, Save, FileCode, Trash2, Edit2, Plus, Database, Clock } from 'lucide-react';
+import { Play, Save, FileCode, Trash2, Edit2, Plus, Database, Clock, Download, FileSpreadsheet } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { toast } from 'sonner';
@@ -37,6 +37,7 @@ const QueriesPage = () => {
   const [sqlCode, setSqlCode] = useState('-- Write your SQL query here\nSELECT * FROM users LIMIT 10;');
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [executingRaw, setExecutingRaw] = useState(false);
+  const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null);
   const queryClient = useQueryClient();
 
   const {
@@ -156,6 +157,40 @@ const QueriesPage = () => {
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Query execution failed');
       setQueryResult(null);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    if (!selectedConnectionId || !sqlCode.trim()) {
+      toast.error('Please execute a query first');
+      return;
+    }
+
+    setExporting('csv');
+    try {
+      await queriesAPI.exportCSV(selectedConnectionId, sqlCode, 'query-results');
+      toast.success('CSV export started');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'CSV export failed');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!selectedConnectionId || !sqlCode.trim()) {
+      toast.error('Please execute a query first');
+      return;
+    }
+
+    setExporting('excel');
+    try {
+      await queriesAPI.exportExcel(selectedConnectionId, sqlCode, 'query-results');
+      toast.success('Excel export started');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Excel export failed');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -295,10 +330,32 @@ const QueriesPage = () => {
             >
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Query Results</CardTitle>
-                  <Badge variant="success">
-                    {queryResult.rowCount} {queryResult.rowCount === 1 ? 'row' : 'rows'}
-                  </Badge>
+                  <div className="flex items-center gap-3">
+                    <CardTitle>Query Results</CardTitle>
+                    <Badge variant="success">
+                      {queryResult.rowCount} {queryResult.rowCount === 1 ? 'row' : 'rows'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleExportCSV}
+                      isLoading={exporting === 'csv'}
+                      leftIcon={<Download className="h-4 w-4" />}
+                    >
+                      CSV
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleExportExcel}
+                      isLoading={exporting === 'excel'}
+                      leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+                    >
+                      Excel
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardBody className="p-0">
                   {queryResult.rows.length > 0 ? (

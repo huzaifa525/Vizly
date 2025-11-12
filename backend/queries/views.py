@@ -4,7 +4,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
+from django.http import HttpResponse
 import logging
+import pandas as pd
+import csv
+import io
 from .models import Query
 from .serializers import QuerySerializer
 from connections.models import Connection
@@ -152,6 +156,114 @@ class QueryViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f'Raw query execution failed for user {request.user.id}: {str(e)}')
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @method_decorator(ratelimit(key='user', rate='20/m', method='POST'))
+    @action(detail=False, methods=['post'])
+    def export_csv(self, request):
+        """Export query results to CSV"""
+        try:
+            connection_id = request.data.get('connection_id')
+            sql = request.data.get('sql')
+            filename = request.data.get('filename', 'export')
+
+            if not connection_id or not sql:
+                return Response({
+                    'status': 'error',
+                    'message': 'connection_id and sql are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            connection = Connection.objects.get(pk=connection_id, user=request.user)
+            logger.info(f'User {request.user.id} exporting CSV from connection {connection.name}')
+
+            result = execute_query(connection, sql)
+
+            if not result['rows']:
+                return Response({
+                    'status': 'error',
+                    'message': 'No data to export'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create CSV
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=result['rows'][0].keys())
+            writer.writeheader()
+            writer.writerows(result['rows'])
+
+            # Create response
+            response = HttpResponse(output.getvalue(), content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+
+            logger.info(f'CSV export successful, {result.get("rowCount", 0)} rows exported')
+            return response
+
+        except Connection.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Connection not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f'CSV export failed for user {request.user.id}: {str(e)}')
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @method_decorator(ratelimit(key='user', rate='20/m', method='POST'))
+    @action(detail=False, methods=['post'])
+    def export_excel(self, request):
+        """Export query results to Excel"""
+        try:
+            connection_id = request.data.get('connection_id')
+            sql = request.data.get('sql')
+            filename = request.data.get('filename', 'export')
+
+            if not connection_id or not sql:
+                return Response({
+                    'status': 'error',
+                    'message': 'connection_id and sql are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            connection = Connection.objects.get(pk=connection_id, user=request.user)
+            logger.info(f'User {request.user.id} exporting Excel from connection {connection.name}')
+
+            result = execute_query(connection, sql)
+
+            if not result['rows']:
+                return Response({
+                    'status': 'error',
+                    'message': 'No data to export'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create Excel file using pandas
+            df = pd.DataFrame(result['rows'])
+            output = io.BytesIO()
+
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Query Results', index=False)
+
+            output.seek(0)
+
+            # Create response
+            response = HttpResponse(
+                output.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+
+            logger.info(f'Excel export successful, {result.get("rowCount", 0)} rows exported')
+            return response
+
+        except Connection.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Connection not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f'Excel export failed for user {request.user.id}: {str(e)}')
             return Response({
                 'status': 'error',
                 'message': str(e)
