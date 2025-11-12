@@ -1,59 +1,127 @@
-import { useState, useEffect } from 'react';
-import { Play, Save, FileCode2, Trash2, Edit2 } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Play, Save, FileCode, Trash2, Edit2, Plus, Database, Clock } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import Modal from '../components/Modal';
-import Table from '../components/Table';
-import Spinner from '../components/Spinner';
+import AdvancedTable from '../components/AdvancedTable';
+import { Button } from '../components/ui/Button';
+import { Card, CardBody, CardHeader, CardTitle } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Input, Textarea, Select } from '../components/ui/Input';
 import { Query, Connection, QueryResult } from '../types';
 import { queriesAPI } from '../services/queries';
 import { connectionsAPI } from '../services/connections';
+import { formatDateTime } from '../lib/utils';
+
+const querySchema = z.object({
+  name: z.string().min(1, 'Query name is required').max(100),
+  description: z.string().max(500).optional(),
+  sql: z.string().min(1, 'SQL query is required'),
+  connection: z.string().min(1, 'Connection is required'),
+});
+
+type QueryFormData = z.infer<typeof querySchema>;
 
 const QueriesPage = () => {
-  const [queries, setQueries] = useState<Query[]>([]);
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [executing, setExecuting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuery, setEditingQuery] = useState<Query | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
-  const [sqlCode, setSqlCode] = useState('SELECT * FROM users LIMIT 10;');
+  const [sqlCode, setSqlCode] = useState('-- Write your SQL query here\nSELECT * FROM users LIMIT 10;');
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
+  const [executingRaw, setExecutingRaw] = useState(false);
+  const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    sql: '',
-    connection: '',
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<QueryFormData>({
+    resolver: zodResolver(querySchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      sql: '',
+      connection: '',
+    },
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Fetch queries
+  const { data: queries = [], isLoading: queriesLoading } = useQuery({
+    queryKey: ['queries'],
+    queryFn: queriesAPI.getAll,
+  });
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [queriesData, connectionsData] = await Promise.all([
-        queriesAPI.getAll(),
-        connectionsAPI.getAll(),
-      ]);
-      setQueries(queriesData);
-      setConnections(connectionsData);
-      if (connectionsData.length > 0 && !selectedConnectionId) {
-        setSelectedConnectionId(connectionsData[0].id);
+  // Fetch connections
+  const { data: connections = [], isLoading: connectionsLoading } = useQuery({
+    queryKey: ['connections'],
+    queryFn: connectionsAPI.getAll,
+    onSuccess: (data) => {
+      if (data.length > 0 && !selectedConnectionId) {
+        setSelectedConnectionId(data[0].id);
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load data');
-    } finally {
-      setLoading(false);
+    },
+  });
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data: QueryFormData) => queriesAPI.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['queries'] });
+      toast.success('Query saved successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to save query');
+    },
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: QueryFormData }) =>
+      queriesAPI.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['queries'] });
+      toast.success('Query updated successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update query');
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => queriesAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['queries'] });
+      toast.success('Query deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete query');
+    },
+  });
+
+  const onSubmit = (data: QueryFormData) => {
+    if (editingQuery) {
+      updateMutation.mutate({ id: editingQuery.id, data });
+    } else {
+      createMutation.mutate(data);
     }
   };
 
-  const handleExecute = async () => {
+  const handleExecuteRaw = async () => {
     if (!selectedConnectionId) {
-      toast.error('Please select a database connection');
+      toast.error('Please select a connection');
       return;
     }
 
@@ -62,25 +130,55 @@ const QueriesPage = () => {
       return;
     }
 
+    setExecutingRaw(true);
     try {
-      setExecuting(true);
-      const result = await queriesAPI.executeRaw(selectedConnectionId, sqlCode);
+      const result = await queriesAPI.executeRaw({
+        connection_id: selectedConnectionId,
+        sql: sqlCode,
+      });
       setQueryResult(result);
-      toast.success(`Query executed successfully. ${result.rowCount} rows returned.`);
+      toast.success(`Query executed: ${result.rowCount} rows returned`);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Query execution failed');
       setQueryResult(null);
     } finally {
-      setExecuting(false);
+      setExecutingRaw(false);
     }
   };
 
-  const handleSave = () => {
-    if (!selectedConnectionId) {
-      toast.error('Please select a database connection');
-      return;
+  const handleExecuteQuery = async (query: Query) => {
+    try {
+      const result = await queriesAPI.execute(query.id);
+      setSqlCode(query.sql);
+      setQueryResult(result);
+      setSelectedConnectionId(query.connection.id);
+      toast.success(`Query executed: ${result.rowCount} rows returned`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Query execution failed');
+      setQueryResult(null);
     }
-    setFormData({
+  };
+
+  const handleEdit = (query: Query) => {
+    setEditingQuery(query);
+    reset({
+      name: query.name,
+      description: query.description || '',
+      sql: query.sql,
+      connection: query.connection.id,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const openSaveModal = () => {
+    setEditingQuery(null);
+    reset({
       name: '',
       description: '',
       sql: sqlCode,
@@ -89,291 +187,314 @@ const QueriesPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingQuery) {
-        await queriesAPI.update(editingQuery.id, formData);
-        toast.success('Query updated successfully');
-      } else {
-        await queriesAPI.create(formData);
-        toast.success('Query saved successfully');
-      }
-      setIsModalOpen(false);
-      resetForm();
-      loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save query');
-    }
-  };
-
-  const handleLoadQuery = (query: Query) => {
-    setSqlCode(query.sql);
-    setSelectedConnectionId(query.connection);
-    setQueryResult(null);
-    toast.success('Query loaded');
-  };
-
-  const handleEdit = (query: Query) => {
-    setEditingQuery(query);
-    setFormData({
-      name: query.name,
-      description: query.description || '',
-      sql: query.sql,
-      connection: query.connection,
-    });
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this query?')) return;
-
-    try {
-      await queriesAPI.delete(id);
-      toast.success('Query deleted successfully');
-      loadData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete query');
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      sql: '',
-      connection: '',
-    });
+  const closeModal = () => {
+    setIsModalOpen(false);
     setEditingQuery(null);
+    reset();
   };
 
-  const queryColumns = [
-    { key: 'name', label: 'Name' },
-    { key: 'description', label: 'Description', render: (value: string) => value || '-' },
-    {
-      key: 'connection',
-      label: 'Connection',
-      render: (_: any, row: Query) => row.connection_details?.name || '-'
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (_: any, row: Query) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleLoadQuery(row)}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            title="Load Query"
-          >
-            <FileCode2 size={18} />
-          </button>
-          <button
-            onClick={() => handleEdit(row)}
-            className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-            title="Edit"
-          >
-            <Edit2 size={18} />
-          </button>
-          <button
-            onClick={() => handleDelete(row.id)}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            title="Delete"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
-      ),
-    },
-  ];
+  const loadingState = queriesLoading || connectionsLoading;
 
-  const resultColumns = queryResult?.columns.map(col => ({
-    key: col.name,
-    label: col.name,
-    render: (value: any) => {
-      if (value === null) return <span className="text-gray-400">NULL</span>;
-      if (typeof value === 'object') return JSON.stringify(value);
-      return String(value);
-    }
-  })) || [];
-
-  return (
-    <div className="px-4 py-6 sm:px-0 space-y-6">
-      {/* SQL Editor Section */}
-      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
-              <FileCode2 size={24} className="text-blue-600" />
-              SQL Editor
-            </h2>
-            <div className="flex items-center gap-3">
-              <select
-                value={selectedConnectionId}
-                onChange={(e) => setSelectedConnectionId(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Select Connection</option>
-                {connections.map((conn) => (
-                  <option key={conn.id} value={conn.id}>
-                    {conn.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleSave}
-                disabled={!sqlCode.trim() || !selectedConnectionId}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
-              >
-                <Save size={16} />
-                Save
-              </button>
-              <button
-                onClick={handleExecute}
-                disabled={executing || !selectedConnectionId || !sqlCode.trim()}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-              >
-                {executing ? <Spinner size="sm" /> : <Play size={16} />}
-                Execute
-              </button>
+  if (loadingState) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/30 rounded-2xl flex items-center justify-center">
+              <FileCode className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+            </div>
+            <div>
+              <h1 className="heading-2">SQL Queries</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Write and execute SQL queries
+              </p>
             </div>
           </div>
         </div>
-        <div className="p-4">
-          <CodeMirror
-            value={sqlCode}
-            height="200px"
-            extensions={[sql()]}
-            onChange={(value) => setSqlCode(value)}
-            theme="dark"
-            className="border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden"
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-96" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-64" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/30 rounded-2xl flex items-center justify-center">
+            <FileCode className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+          </div>
+          <div>
+            <h1 className="heading-2">SQL Queries</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {queries.length} saved {queries.length === 1 ? 'query' : 'queries'}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Query Results */}
-      {queryResult && (
-        <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-          <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Results ({queryResult.rowCount} rows)
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <Table
-              columns={resultColumns}
-              data={queryResult.rows}
-              emptyMessage="No results"
-            />
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* SQL Editor - Left Side (2/3 width) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Query Editor Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Query Editor</CardTitle>
+              <div className="flex items-center gap-2">
+                <Select
+                  options={connections.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${c.type})`,
+                  }))}
+                  value={selectedConnectionId}
+                  onChange={(e) => setSelectedConnectionId(e.target.value)}
+                  className="min-w-[200px]"
+                />
+                <Button
+                  onClick={handleExecuteRaw}
+                  isLoading={executingRaw}
+                  leftIcon={<Play className="h-4 w-4" />}
+                  size="sm"
+                >
+                  Run Query
+                </Button>
+                <Button
+                  onClick={openSaveModal}
+                  variant="secondary"
+                  leftIcon={<Save className="h-4 w-4" />}
+                  size="sm"
+                >
+                  Save
+                </Button>
+              </div>
+            </CardHeader>
+            <CardBody className="p-0">
+              <CodeMirror
+                value={sqlCode}
+                height="400px"
+                extensions={[sql()]}
+                onChange={(value) => setSqlCode(value)}
+                theme="dark"
+                className="text-sm"
+              />
+            </CardBody>
+          </Card>
 
-      {/* Saved Queries */}
-      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            Saved Queries
-          </h3>
+          {/* Query Results Card */}
+          {queryResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Query Results</CardTitle>
+                  <Badge variant="success">
+                    {queryResult.rowCount} {queryResult.rowCount === 1 ? 'row' : 'rows'}
+                  </Badge>
+                </CardHeader>
+                <CardBody className="p-0">
+                  {queryResult.rows.length > 0 ? (
+                    <div className="max-h-[500px] overflow-auto">
+                      <AdvancedTable data={queryResult.rows} />
+                    </div>
+                  ) : (
+                    <div className="py-12">
+                      <EmptyState
+                        icon={<Database className="w-12 h-12" />}
+                        title="No results"
+                        description="Query executed successfully but returned no rows"
+                      />
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+            </motion.div>
+          )}
         </div>
-        <Table
-          columns={queryColumns}
-          data={queries}
-          loading={loading}
-          emptyMessage="No saved queries yet. Create your first query to explore your data."
-        />
+
+        {/* Saved Queries - Right Sidebar (1/3 width) */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Saved Queries</CardTitle>
+            </CardHeader>
+            <CardBody className="p-4 space-y-2 max-h-[800px] overflow-y-auto">
+              {queries.length === 0 ? (
+                <EmptyState
+                  icon={<FileCode className="w-12 h-12" />}
+                  title="No saved queries"
+                  description="Save your queries for easy access later"
+                />
+              ) : (
+                queries.map((query) => (
+                  <motion.div
+                    key={query.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="group"
+                  >
+                    <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 transition-all cursor-pointer hover:shadow-md">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">
+                            {query.name}
+                          </h4>
+                          {query.description && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
+                              {query.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        <Database className="h-3 w-3" />
+                        <span className="truncate">{query.connection.name}</span>
+                      </div>
+
+                      {query.updatedAt && (
+                        <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mb-3">
+                          <Clock className="h-3 w-3" />
+                          <span>{formatDateTime(query.updatedAt)}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleExecuteQuery(query)}
+                          className="flex-1 text-xs"
+                        >
+                          <Play className="h-3 w-3" />
+                          Run
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(query)}
+                          className="text-brand-600 hover:text-brand-700"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(query.id, query.name)}
+                          className="text-error-600 hover:text-error-700"
+                          isLoading={deleteMutation.isPending}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </CardBody>
+          </Card>
+        </div>
       </div>
 
-      {/* Save Query Modal */}
-      <Modal
+      <QueryModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          resetForm();
-        }}
-        title={editingQuery ? 'Edit Query' : 'Save Query'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Query Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="My Query"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              rows={3}
-              placeholder="What does this query do?"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Connection *
-            </label>
-            <select
-              required
-              value={formData.connection}
-              onChange={(e) => setFormData({ ...formData, connection: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="">Select Connection</option>
-              {connections.map((conn) => (
-                <option key={conn.id} value={conn.id}>
-                  {conn.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              SQL Query *
-            </label>
-            <textarea
-              required
-              value={formData.sql}
-              onChange={(e) => setFormData({ ...formData, sql: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
-              rows={8}
-              placeholder="SELECT * FROM table"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                resetForm();
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-            >
-              {editingQuery ? 'Update' : 'Save'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+        onClose={closeModal}
+        onSubmit={handleSubmit(onSubmit)}
+        register={register}
+        errors={errors}
+        isSubmitting={isSubmitting || createMutation.isPending || updateMutation.isPending}
+        isEditing={!!editingQuery}
+        connections={connections}
+        setValue={setValue}
+      />
     </div>
+  );
+};
+
+interface QueryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (e?: React.BaseSyntheticEvent) => void;
+  register: any;
+  errors: any;
+  isSubmitting: boolean;
+  isEditing: boolean;
+  connections: Connection[];
+  setValue: any;
+}
+
+const QueryModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  register,
+  errors,
+  isSubmitting,
+  isEditing,
+  connections,
+}: QueryModalProps) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Edit Query' : 'Save Query'}
+      size="lg"
+    >
+      <form onSubmit={onSubmit} className="space-y-5">
+        <Input
+          label="Query Name"
+          placeholder="Monthly Sales Report"
+          error={errors.name?.message}
+          {...register('name')}
+          required
+        />
+
+        <Textarea
+          label="Description"
+          placeholder="What does this query do?"
+          error={errors.description?.message}
+          {...register('description')}
+          rows={2}
+        />
+
+        <Select
+          label="Connection"
+          error={errors.connection?.message}
+          {...register('connection')}
+          required
+          options={connections.map((c) => ({
+            value: c.id,
+            label: `${c.name} (${c.type})`,
+          }))}
+        />
+
+        <Textarea
+          label="SQL Query"
+          placeholder="SELECT * FROM users WHERE active = true;"
+          error={errors.sql?.message}
+          {...register('sql')}
+          rows={8}
+          required
+        />
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" isLoading={isSubmitting}>
+            {isEditing ? 'Update Query' : 'Save Query'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 };
 
