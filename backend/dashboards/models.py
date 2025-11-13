@@ -10,6 +10,7 @@ class Dashboard(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     layout = models.JSONField(default=dict, null=True, blank=True)  # Grid layout config
+    filters = models.JSONField(default=list, null=True, blank=True)  # Dashboard-level filters
     is_public = models.BooleanField(default=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dashboards')
     created_at = models.DateTimeField(auto_now_add=True)
