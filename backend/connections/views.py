@@ -4,7 +4,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Connection
 from .serializers import ConnectionSerializer
-from .services import test_database_connection
+from .services import test_database_connection, get_database_schema
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionViewSet(viewsets.ModelViewSet):
@@ -100,6 +103,29 @@ class ConnectionViewSet(viewsets.ModelViewSet):
                 'message': 'Connection not found'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"Connection test error: {str(e)}")
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['get'])
+    def schema(self, request, pk=None):
+        """Get database schema (tables and columns)"""
+        try:
+            connection = self.get_queryset().get(pk=pk)
+            schema_data = get_database_schema(connection)
+            return Response({
+                'status': 'success',
+                'data': schema_data
+            })
+        except Connection.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Connection not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Schema introspection error: {str(e)}")
             return Response({
                 'status': 'error',
                 'message': str(e)

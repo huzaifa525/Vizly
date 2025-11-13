@@ -68,39 +68,11 @@ const SchemaExplorerPage = () => {
   const loadSchema = async (connectionId: string) => {
     try {
       setLoadingSchema(true);
-      // TODO: Implement actual API call when backend endpoint is ready
-      // const data = await connectionsAPI.getSchema(connectionId);
-
-      // Mock data for demonstration
-      const mockSchema: Schema = {
-        tables: [
-          {
-            name: 'users',
-            row_count: 1234,
-            columns: [
-              { name: 'id', type: 'INTEGER', nullable: false, primary_key: true },
-              { name: 'email', type: 'VARCHAR(255)', nullable: false },
-              { name: 'name', type: 'VARCHAR(255)', nullable: false },
-              { name: 'created_at', type: 'TIMESTAMP', nullable: false, default: 'CURRENT_TIMESTAMP' },
-            ],
-          },
-          {
-            name: 'orders',
-            row_count: 5678,
-            columns: [
-              { name: 'id', type: 'INTEGER', nullable: false, primary_key: true },
-              { name: 'user_id', type: 'INTEGER', nullable: false, foreign_key: 'users.id' },
-              { name: 'amount', type: 'DECIMAL(10,2)', nullable: false },
-              { name: 'status', type: 'VARCHAR(50)', nullable: false },
-              { name: 'created_at', type: 'TIMESTAMP', nullable: false },
-            ],
-          },
-        ],
-      };
-
-      setSchema(mockSchema);
+      const data = await connectionsAPI.getSchema(connectionId);
+      setSchema(data);
     } catch (error: any) {
-      toast.error('Failed to load database schema');
+      toast.error(error.response?.data?.message || 'Failed to load database schema');
+      setSchema(null);
     } finally {
       setLoadingSchema(false);
     }

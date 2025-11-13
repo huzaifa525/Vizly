@@ -30,4 +30,9 @@ export const connectionsAPI = {
     const response = await api.post(`/connections/${id}/test/`);
     return response.data.data || response.data;
   },
+
+  getSchema: async (id: string): Promise<any> => {
+    const response = await api.get(`/connections/${id}/schema/`);
+    return response.data.data || response.data;
+  },
 };

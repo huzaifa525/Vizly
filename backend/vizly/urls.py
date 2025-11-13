@@ -6,19 +6,28 @@ from django.urls import path, include
 from django.http import JsonResponse
 from django.conf import settings
 from django.conf.urls.static import static
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 
 def health_check(request):
     """Health check endpoint"""
     return JsonResponse({
         'status': 'ok',
-        'service': 'vizly-api'
+        'service': 'vizly-api',
+        'version': '1.0.0'
     })
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health_check),
+
+    # API Documentation
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
+    # API Endpoints
     path('api/auth/', include('api.urls')),
     path('api/connections/', include('connections.urls')),
     path('api/queries/', include('queries.urls')),
