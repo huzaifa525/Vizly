@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Trash2, Edit2, Eye, Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { LayoutDashboard, Trash2, Edit2, Eye, Plus, Search, Download, BarChart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import Modal from '../components/Modal';
-import Table from '../components/Table';
 import { Dashboard } from '../types';
 import { dashboardsAPI } from '../services/dashboards';
+import Modal from '../components/Modal';
+import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
+import KPICard from '../components/KPICard';
+import SkeletonLoader from '../components/SkeletonLoader';
 
-const DashboardPage = () => {
+const ModernDashboardPage = () => {
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDashboard, setEditingDashboard] = useState<Dashboard | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -90,74 +95,52 @@ const DashboardPage = () => {
     setIsModalOpen(true);
   };
 
-  const columns = [
-    { key: 'name', label: 'Name' },
-    { key: 'description', label: 'Description', render: (value: string) => value || '-' },
-    {
-      key: 'isPublic',
-      label: 'Visibility',
-      render: (value: boolean) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
-          {value ? 'Public' : 'Private'}
-        </span>
-      )
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (_: any, row: Dashboard) => (
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/dashboard/${row.id}`}
-            className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-            title="View Dashboard"
-          >
-            <Eye size={18} />
-          </Link>
-          <button
-            onClick={() => handleEdit(row)}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            title="Edit"
-          >
-            <Edit2 size={18} />
-          </button>
-          <button
-            onClick={() => handleDelete(row.id)}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            title="Delete"
-          >
-            <Trash2 size={18} />
-          </button>
+  const filteredDashboards = dashboards.filter(dashboard =>
+    dashboard.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    dashboard.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const publicDashboardsCount = dashboards.filter(d => d.isPublic).length;
+  const privateDashboardsCount = dashboards.filter(d => !d.isPublic).length;
+
+  // Show loading skeleton
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in">
+        <div className="page-header">
+          <h1 className="page-title">Dashboards</h1>
         </div>
-      ),
-    },
-  ];
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SkeletonLoader type="card" count={3} />
+        </div>
+        <SkeletonLoader type="table" />
+      </div>
+    );
+  }
 
   // Show welcome screen if no dashboards exist
   if (!loading && dashboards.length === 0) {
     return (
-      <div className="px-4 py-6 sm:px-0">
-        <div className="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-lg h-96 flex items-center justify-center">
-          <div className="text-center">
-            <LayoutDashboard size={64} className="mx-auto text-gray-400 mb-4" />
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Welcome to Vizly
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Your self-hosted business intelligence platform
-            </p>
-            <div className="space-x-4">
-              <Link to="/connections" className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                Connect a Database
-              </Link>
-              <button
-                onClick={openCreateModal}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-              >
-                Create Dashboard
-              </button>
+      <div className="space-y-6 animate-in">
+        <div className="page-header">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-primary-500 to-secondary-600 rounded-xl">
+              <LayoutDashboard className="w-6 h-6 text-white" />
             </div>
+            <h1 className="page-title">Dashboards</h1>
           </div>
+        </div>
+
+        <div className="card">
+          <EmptyState
+            icon={<LayoutDashboard size={64} />}
+            title="Welcome to Vizly"
+            description="Your self-hosted business intelligence platform. Create your first dashboard to get started."
+            actionLabel="Create Dashboard"
+            onAction={openCreateModal}
+            secondaryActionLabel="Connect a Database"
+            onSecondaryAction={() => window.location.href = '/connections'}
+          />
         </div>
 
         <Modal
@@ -166,171 +149,231 @@ const DashboardPage = () => {
             setIsModalOpen(false);
             resetForm();
           }}
-          title="New Dashboard"
+          title="Create Dashboard"
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Dashboard Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="My Dashboard"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                rows={3}
-                placeholder="What is this dashboard about?"
-              />
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isPublic"
-                checked={formData.isPublic}
-                onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                Make this dashboard public
-              </label>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  resetForm();
-                }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Create
-              </button>
-            </div>
-          </form>
+          <DashboardForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsModalOpen(false);
+              resetForm();
+            }}
+          />
         </Modal>
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-6 sm:px-0">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <LayoutDashboard size={28} className="text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Dashboards
-          </h1>
+    <div className="space-y-6 animate-in">
+      {/* Header */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-br from-primary-500 to-secondary-600 rounded-xl">
+            <LayoutDashboard className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="page-title">Dashboards</h1>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus size={16} />
+        <Button onClick={openCreateModal} icon={<Plus size={18} />}>
           Create Dashboard
-        </button>
+        </Button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <Table
-          columns={columns}
-          data={dashboards}
-          loading={loading}
-          emptyMessage="No dashboards yet. Create your first dashboard to get started."
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <KPICard
+          title="Total Dashboards"
+          value={dashboards.length}
+          icon={<LayoutDashboard size={24} />}
+          color="primary"
+        />
+        <KPICard
+          title="Public Dashboards"
+          value={publicDashboardsCount}
+          icon={<Eye size={24} />}
+          color="success"
+        />
+        <KPICard
+          title="Private Dashboards"
+          value={privateDashboardsCount}
+          icon={<BarChart size={24} />}
+          color="info"
         />
       </div>
 
+      {/* Search */}
+      <div className="card">
+        <div className="flex items-center gap-3">
+          <Search className="w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search dashboards..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input"
+          />
+        </div>
+      </div>
+
+      {/* Dashboard Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredDashboards.map((dashboard, index) => (
+          <motion.div
+            key={dashboard.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="card-hover group relative"
+          >
+            {/* Badge */}
+            <div className="absolute top-4 right-4 z-10">
+              {dashboard.isPublic ? (
+                <span className="badge-success">Public</span>
+              ) : (
+                <span className="badge-gray">Private</span>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl shadow-lg flex-shrink-0">
+                <LayoutDashboard className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">
+                  {dashboard.name}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                  {dashboard.description || 'No description'}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Link
+                to={`/dashboard/${dashboard.id}`}
+                className="flex-1"
+              >
+                <Button variant="primary" fullWidth icon={<Eye size={16} />}>
+                  View
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                onClick={() => handleEdit(dashboard)}
+                icon={<Edit2 size={16} />}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => handleDelete(dashboard.id)}
+                icon={<Trash2 size={16} />}
+                className="text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20"
+              >
+                Delete
+              </Button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {filteredDashboards.length === 0 && searchQuery && (
+        <div className="card">
+          <EmptyState
+            icon={<Search size={48} />}
+            title="No Results"
+            description="No dashboards match your search query."
+          />
+        </div>
+      )}
+
+      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           resetForm();
         }}
-        title={editingDashboard ? 'Edit Dashboard' : 'New Dashboard'}
+        title={editingDashboard ? 'Edit Dashboard' : 'Create Dashboard'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Dashboard Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="My Dashboard"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              rows={3}
-              placeholder="What is this dashboard about?"
-            />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="isPublic"
-              checked={formData.isPublic}
-              onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-              Make this dashboard public
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                resetForm();
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-            >
-              {editingDashboard ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
+        <DashboardForm
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsModalOpen(false);
+            resetForm();
+          }}
+          isEditing={!!editingDashboard}
+        />
       </Modal>
     </div>
   );
 };
 
-export default DashboardPage;
+// Dashboard Form Component
+interface DashboardFormProps {
+  formData: { name: string; description: string; isPublic: boolean };
+  setFormData: React.Dispatch<React.SetStateAction<{ name: string; description: string; isPublic: boolean }>>;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
+}
+
+const DashboardForm = ({ formData, setFormData, onSubmit, onCancel, isEditing }: DashboardFormProps) => (
+  <form onSubmit={onSubmit} className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Dashboard Name *
+      </label>
+      <input
+        type="text"
+        required
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        className="input"
+        placeholder="My Dashboard"
+      />
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Description
+      </label>
+      <textarea
+        value={formData.description}
+        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+        className="textarea"
+        rows={3}
+        placeholder="What is this dashboard about?"
+      />
+    </div>
+
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        id="isPublic"
+        checked={formData.isPublic}
+        onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
+        className="checkbox"
+      />
+      <label htmlFor="isPublic" className="text-sm text-gray-700 dark:text-gray-300">
+        Make this dashboard public
+      </label>
+    </div>
+
+    <div className="flex justify-end gap-3 pt-4">
+      <Button type="button" variant="outline" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button type="submit">
+        {isEditing ? 'Update' : 'Create'}
+      </Button>
+    </div>
+  </form>
+);
+
+export default ModernDashboardPage;
