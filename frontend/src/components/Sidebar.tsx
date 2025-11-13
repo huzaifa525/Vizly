@@ -132,14 +132,20 @@ const Sidebar = () => {
 
       {/* Bottom Actions */}
       <div className="p-3 border-t border-gray-700/50 space-y-1">
-        <button
+        <Link
+          to="/settings"
           className={`
-            w-full flex items-center gap-3 px-3 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200
+            w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200
+            ${
+              isActive('/settings')
+                ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+            }
           `}
         >
           <Settings className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="font-medium">Settings</span>}
-        </button>
+        </Link>
         <button
           onClick={logout}
           className={`

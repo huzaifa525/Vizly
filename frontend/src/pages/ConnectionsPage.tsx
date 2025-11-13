@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Database, Trash2, Edit2, TestTube } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Database, Trash2, Edit2, TestTube, Plus, Search, Server, CheckCircle2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
-import Table from '../components/Table';
-import Spinner from '../components/Spinner';
+import Button from '../components/Button';
+import KPICard from '../components/KPICard';
+import EmptyState from '../components/EmptyState';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { Connection } from '../types';
 import { connectionsAPI } from '../services/connections';
 
-const ConnectionsPage = () => {
+const ModernConnectionsPage = () => {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -127,85 +131,230 @@ const ConnectionsPage = () => {
     setIsModalOpen(true);
   };
 
-  const columns = [
-    { key: 'name', label: 'Name' },
-    {
-      key: 'type',
-      label: 'Type',
-      render: (value: string) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-          {value}
-        </span>
-      )
-    },
-    {
-      key: 'host',
-      label: 'Host',
-      render: (value: string) => value || '-'
-    },
-    { key: 'database', label: 'Database' },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (_: any, row: Connection) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleTest(row.id)}
-            disabled={testingId === row.id}
-            className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-50"
-            title="Test Connection"
-          >
-            {testingId === row.id ? (
-              <Spinner size="sm" />
-            ) : (
-              <TestTube size={18} />
-            )}
-          </button>
-          <button
-            onClick={() => handleEdit(row)}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            title="Edit"
-          >
-            <Edit2 size={18} />
-          </button>
-          <button
-            onClick={() => handleDelete(row.id)}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            title="Delete"
-          >
-            <Trash2 size={18} />
-          </button>
+  const filteredConnections = connections.filter(conn =>
+    conn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conn.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conn.database.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const postgresCount = connections.filter(c => c.type === 'postgres').length;
+  const mysqlCount = connections.filter(c => c.type === 'mysql').length;
+  const sqliteCount = connections.filter(c => c.type === 'sqlite').length;
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in">
+        <div className="page-header">
+          <h1 className="page-title">Database Connections</h1>
         </div>
-      ),
-    },
-  ];
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SkeletonLoader type="card" count={3} />
+        </div>
+        <SkeletonLoader type="card" count={3} className="space-y-4" />
+      </div>
+    );
+  }
+
+  if (!loading && connections.length === 0) {
+    return (
+      <div className="space-y-6 animate-in">
+        <div className="page-header">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-info-500 to-info-600 rounded-xl">
+              <Database className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="page-title">Database Connections</h1>
+          </div>
+        </div>
+
+        <div className="card">
+          <EmptyState
+            icon={<Database size={64} />}
+            title="No Database Connections"
+            description="Connect to your databases to start exploring and analyzing your data."
+            actionLabel="Add Connection"
+            onAction={openCreateModal}
+          />
+        </div>
+
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            resetForm();
+          }}
+          title="New Connection"
+          size="lg"
+        >
+          <ConnectionForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsModalOpen(false);
+              resetForm();
+            }}
+          />
+        </Modal>
+      </div>
+    );
+  }
 
   return (
-    <div className="px-4 py-6 sm:px-0">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <Database size={28} className="text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Database Connections
-          </h1>
+    <div className="space-y-6 animate-in">
+      {/* Header */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-br from-info-500 to-info-600 rounded-xl">
+            <Database className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="page-title">Database Connections</h1>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
+        <Button onClick={openCreateModal} icon={<Plus size={18} />}>
           Add Connection
-        </button>
+        </Button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <Table
-          columns={columns}
-          data={connections}
-          loading={loading}
-          emptyMessage="No database connections yet. Add your first connection to get started."
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <KPICard
+          title="Total Connections"
+          value={connections.length}
+          icon={<Database size={24} />}
+          color="primary"
+        />
+        <KPICard
+          title="PostgreSQL"
+          value={postgresCount}
+          icon={<Server size={24} />}
+          color="info"
+        />
+        <KPICard
+          title="MySQL"
+          value={mysqlCount}
+          icon={<Server size={24} />}
+          color="warning"
+        />
+        <KPICard
+          title="SQLite"
+          value={sqliteCount}
+          icon={<Server size={24} />}
+          color="success"
         />
       </div>
 
+      {/* Search */}
+      <div className="card">
+        <div className="flex items-center gap-3">
+          <Search className="w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search connections..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input"
+          />
+        </div>
+      </div>
+
+      {/* Connections Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredConnections.map((connection, index) => (
+          <motion.div
+            key={connection.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="card-hover group relative"
+          >
+            {/* Type Badge */}
+            <div className="absolute top-4 right-4 z-10">
+              <span className={`badge ${
+                connection.type === 'postgres' ? 'badge-info' :
+                connection.type === 'mysql' ? 'badge-warning' :
+                'badge-success'
+              }`}>
+                {connection.type}
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-gradient-to-br from-info-500 to-info-600 rounded-xl shadow-lg flex-shrink-0">
+                <Database className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">
+                  {connection.name}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                  {connection.host || 'Local'} • {connection.database}
+                </p>
+              </div>
+            </div>
+
+            {/* Connection Details */}
+            <div className="space-y-2 mb-4 text-sm">
+              {connection.host && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <Server size={14} />
+                  <span className="truncate">{connection.host}{connection.port ? `:${connection.port}` : ''}</span>
+                </div>
+              )}
+              {connection.username && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <span className="font-mono text-xs truncate">{connection.username}</span>
+                </div>
+              )}
+              {connection.ssl && (
+                <div className="flex items-center gap-2 text-success-600 dark:text-success-400">
+                  <CheckCircle2 size={14} />
+                  <span className="text-xs">SSL Enabled</span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="success"
+                size="sm"
+                onClick={() => handleTest(connection.id)}
+                loading={testingId === connection.id}
+                icon={<TestTube size={14} />}
+                fullWidth
+              >
+                Test
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleEdit(connection)}
+                icon={<Edit2 size={14} />}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDelete(connection.id)}
+                icon={<Trash2 size={14} />}
+                className="text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20"
+              />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {filteredConnections.length === 0 && searchQuery && (
+        <div className="card">
+          <EmptyState
+            icon={<Search size={48} />}
+            title="No Results"
+            description="No connections match your search query."
+          />
+        </div>
+      )}
+
+      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
@@ -215,147 +364,159 @@ const ConnectionsPage = () => {
         title={editingConnection ? 'Edit Connection' : 'New Connection'}
         size="lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Connection Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="My Database"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Database Type *
-            </label>
-            <select
-              required
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="postgres">PostgreSQL</option>
-              <option value="mysql">MySQL</option>
-              <option value="sqlite">SQLite</option>
-            </select>
-          </div>
-
-          {formData.type !== 'sqlite' && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Host *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.host}
-                    onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="localhost"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Port
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.port}
-                    onChange={(e) => setFormData({ ...formData, port: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder={formData.type === 'postgres' ? '5432' : '3306'}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Username *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Password {editingConnection ? '' : '*'}
-                </label>
-                <input
-                  type="password"
-                  required={!editingConnection}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder={editingConnection ? 'Leave blank to keep current password' : ''}
-                />
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Database Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.database}
-              onChange={(e) => setFormData({ ...formData, database: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder={formData.type === 'sqlite' ? 'database.db' : 'mydb'}
-            />
-          </div>
-
-          {formData.type !== 'sqlite' && (
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="ssl"
-                checked={formData.ssl}
-                onChange={(e) => setFormData({ ...formData, ssl: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="ssl" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                Use SSL
-              </label>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                resetForm();
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              {editingConnection ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
+        <ConnectionForm
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsModalOpen(false);
+            resetForm();
+          }}
+          isEditing={!!editingConnection}
+        />
       </Modal>
     </div>
   );
 };
 
-export default ConnectionsPage;
+// Connection Form Component
+interface ConnectionFormProps {
+  formData: any;
+  setFormData: React.Dispatch<React.SetStateAction<any>>;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
+}
+
+const ConnectionForm = ({ formData, setFormData, onSubmit, onCancel, isEditing }: ConnectionFormProps) => (
+  <form onSubmit={onSubmit} className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Connection Name *
+      </label>
+      <input
+        type="text"
+        required
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        className="input"
+        placeholder="My Database"
+      />
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Database Type *
+      </label>
+      <select
+        required
+        value={formData.type}
+        onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+        className="select"
+      >
+        <option value="postgres">PostgreSQL</option>
+        <option value="mysql">MySQL</option>
+        <option value="sqlite">SQLite</option>
+      </select>
+    </div>
+
+    {formData.type !== 'sqlite' && (
+      <>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Host *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.host}
+              onChange={(e) => setFormData({ ...formData, host: e.target.value })}
+              className="input"
+              placeholder="localhost"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Port
+            </label>
+            <input
+              type="number"
+              value={formData.port}
+              onChange={(e) => setFormData({ ...formData, port: e.target.value })}
+              className="input"
+              placeholder={formData.type === 'postgres' ? '5432' : '3306'}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Username *
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.username}
+            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Password {isEditing ? '' : '*'}
+          </label>
+          <input
+            type="password"
+            required={!isEditing}
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            className="input"
+            placeholder={isEditing ? 'Leave blank to keep current password' : ''}
+          />
+        </div>
+      </>
+    )}
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Database Name *
+      </label>
+      <input
+        type="text"
+        required
+        value={formData.database}
+        onChange={(e) => setFormData({ ...formData, database: e.target.value })}
+        className="input"
+        placeholder={formData.type === 'sqlite' ? 'database.db' : 'mydb'}
+      />
+    </div>
+
+    {formData.type !== 'sqlite' && (
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="ssl"
+          checked={formData.ssl}
+          onChange={(e) => setFormData({ ...formData, ssl: e.target.checked })}
+          className="checkbox"
+        />
+        <label htmlFor="ssl" className="text-sm text-gray-700 dark:text-gray-300">
+          Use SSL
+        </label>
+      </div>
+    )}
+
+    <div className="flex justify-end gap-3 pt-4">
+      <Button type="button" variant="outline" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button type="submit">
+        {isEditing ? 'Update' : 'Create'}
+      </Button>
+    </div>
+  </form>
+);
+
+export default ModernConnectionsPage;

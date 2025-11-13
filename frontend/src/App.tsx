@@ -8,6 +8,7 @@ import ConnectionsPage from './pages/ConnectionsPage';
 import QueriesPage from './pages/QueriesPage';
 import VisualizationsPage from './pages/VisualizationsPage';
 import SchemaExplorerPage from './pages/SchemaExplorerPage';
+import SettingsPage from './pages/SettingsPage';
 import Layout from './components/Layout';
 import Toast from './components/Toast';
 
@@ -32,6 +33,7 @@ function App() {
             <Route path="queries" element={<QueriesPage />} />
             <Route path="visualizations" element={<VisualizationsPage />} />
             <Route path="schema-explorer" element={<SchemaExplorerPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </Router>

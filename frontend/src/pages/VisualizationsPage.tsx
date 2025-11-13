@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, Trash2, Edit2, Eye, Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  BarChart3, Trash2, Edit2, Eye, Plus, Search, PieChart,
+  LineChart, AreaChart, TrendingUp
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
-import Table from '../components/Table';
+import Button from '../components/Button';
+import KPICard from '../components/KPICard';
+import EmptyState from '../components/EmptyState';
+import SkeletonLoader from '../components/SkeletonLoader';
 import ChartRenderer from '../components/ChartRenderer';
 import AdvancedTable from '../components/AdvancedTable';
 import { Visualization, Query } from '../types';
@@ -10,28 +17,28 @@ import { visualizationsAPI } from '../services/visualizations';
 import { queriesAPI } from '../services/queries';
 
 const CHART_TYPES = [
-  { value: 'table', label: 'Table', category: 'Table' },
-  { value: 'line', label: 'Line Chart', category: 'Basic' },
-  { value: 'bar', label: 'Bar Chart', category: 'Basic' },
-  { value: 'horizontal_bar', label: 'Horizontal Bar', category: 'Bar' },
-  { value: 'stacked_bar', label: 'Stacked Bar', category: 'Bar' },
-  { value: 'grouped_bar', label: 'Grouped Bar', category: 'Bar' },
-  { value: 'pie', label: 'Pie Chart', category: 'Basic' },
-  { value: 'donut', label: 'Donut Chart', category: 'Basic' },
-  { value: 'area', label: 'Area Chart', category: 'Basic' },
-  { value: 'stacked_area', label: 'Stacked Area', category: 'Area' },
-  { value: 'scatter', label: 'Scatter Plot', category: 'Basic' },
-  { value: 'bubble', label: 'Bubble Chart', category: 'Advanced' },
-  { value: 'heatmap', label: 'Heatmap', category: 'Advanced' },
-  { value: 'treemap', label: 'Treemap', category: 'Advanced' },
-  { value: 'sunburst', label: 'Sunburst', category: 'Advanced' },
-  { value: 'sankey', label: 'Sankey Diagram', category: 'Advanced' },
-  { value: 'funnel', label: 'Funnel Chart', category: 'Advanced' },
-  { value: 'radar', label: 'Radar Chart', category: 'Advanced' },
-  { value: 'gauge', label: 'Gauge', category: 'Advanced' },
-  { value: 'candlestick', label: 'Candlestick', category: 'Financial' },
-  { value: 'boxplot', label: 'Box Plot', category: 'Statistical' },
-  { value: 'waterfall', label: 'Waterfall', category: 'Advanced' },
+  { value: 'table', label: 'Table', category: 'Table', icon: '📊' },
+  { value: 'line', label: 'Line Chart', category: 'Basic', icon: '📈' },
+  { value: 'bar', label: 'Bar Chart', category: 'Basic', icon: '📊' },
+  { value: 'horizontal_bar', label: 'Horizontal Bar', category: 'Bar', icon: '📊' },
+  { value: 'stacked_bar', label: 'Stacked Bar', category: 'Bar', icon: '📊' },
+  { value: 'grouped_bar', label: 'Grouped Bar', category: 'Bar', icon: '📊' },
+  { value: 'pie', label: 'Pie Chart', category: 'Basic', icon: '🍰' },
+  { value: 'donut', label: 'Donut Chart', category: 'Basic', icon: '🍩' },
+  { value: 'area', label: 'Area Chart', category: 'Basic', icon: '📊' },
+  { value: 'stacked_area', label: 'Stacked Area', category: 'Area', icon: '📈' },
+  { value: 'scatter', label: 'Scatter Plot', category: 'Basic', icon: '🔵' },
+  { value: 'bubble', label: 'Bubble Chart', category: 'Advanced', icon: '🫧' },
+  { value: 'heatmap', label: 'Heatmap', category: 'Advanced', icon: '🌡️' },
+  { value: 'treemap', label: 'Treemap', category: 'Advanced', icon: '🗺️' },
+  { value: 'sunburst', label: 'Sunburst', category: 'Advanced', icon: '☀️' },
+  { value: 'sankey', label: 'Sankey Diagram', category: 'Advanced', icon: '🌊' },
+  { value: 'funnel', label: 'Funnel Chart', category: 'Advanced', icon: '⏬' },
+  { value: 'radar', label: 'Radar Chart', category: 'Advanced', icon: '📡' },
+  { value: 'gauge', label: 'Gauge', category: 'Advanced', icon: '⏱️' },
+  { value: 'candlestick', label: 'Candlestick', category: 'Financial', icon: '📊' },
+  { value: 'boxplot', label: 'Box Plot', category: 'Statistical', icon: '📦' },
+  { value: 'waterfall', label: 'Waterfall', category: 'Advanced', icon: '💧' },
 ];
 
 const VisualizationsPage = () => {
@@ -43,6 +50,7 @@ const VisualizationsPage = () => {
   const [editingVisualization, setEditingVisualization] = useState<Visualization | null>(null);
   const [viewingVisualization, setViewingVisualization] = useState<Visualization | null>(null);
   const [queryResult, setQueryResult] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -169,55 +177,10 @@ const VisualizationsPage = () => {
     return <ChartRenderer type={viewingVisualization.type} data={queryResult.rows} config={config} />;
   };
 
-  const columns = [
-    { key: 'name', label: 'Name' },
-    {
-      key: 'type',
-      label: 'Type',
-      render: (value: string) => {
-        const chartType = CHART_TYPES.find((ct) => ct.value === value);
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-            {chartType?.label || value}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'query',
-      label: 'Query',
-      render: (_: any, row: Visualization) => row.query_details?.name || '-',
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (_: any, row: Visualization) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleView(row)}
-            className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-            title="View"
-          >
-            <Eye size={18} />
-          </button>
-          <button
-            onClick={() => handleEdit(row)}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            title="Edit"
-          >
-            <Edit2 size={18} />
-          </button>
-          <button
-            onClick={() => handleDelete(row.id)}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            title="Delete"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
-      ),
-    },
-  ];
+  const filteredVisualizations = visualizations.filter(v =>
+    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    v.type.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Group chart types by category
   const groupedChartTypes = CHART_TYPES.reduce((acc, chart) => {
@@ -228,32 +191,183 @@ const VisualizationsPage = () => {
     return acc;
   }, {} as Record<string, typeof CHART_TYPES>);
 
-  return (
-    <div className="px-4 py-6 sm:px-0">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <BarChart3 size={28} className="text-purple-600" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Visualizations
-          </h1>
+  // Calculate stats
+  const chartCount = visualizations.filter(v => v.type !== 'table').length;
+  const tableCount = visualizations.filter(v => v.type === 'table').length;
+  const basicCharts = visualizations.filter(v =>
+    ['line', 'bar', 'pie', 'donut', 'area', 'scatter'].includes(v.type)
+  ).length;
+
+  const getChartIcon = (type: string) => {
+    const chart = CHART_TYPES.find(ct => ct.value === type);
+    return chart?.icon || '📊';
+  };
+
+  const getChartLabel = (type: string) => {
+    const chart = CHART_TYPES.find(ct => ct.value === type);
+    return chart?.label || type;
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in">
+        <div className="page-header">
+          <h1 className="page-title">Visualizations</h1>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-        >
-          <Plus size={16} />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <SkeletonLoader type="card" count={4} />
+        </div>
+        <SkeletonLoader type="card" count={3} className="space-y-4" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-in">
+      {/* Header */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-xl">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="page-title">Visualizations</h1>
+        </div>
+        <Button onClick={openCreateModal} icon={<Plus size={18} />}>
           Create Visualization
-        </button>
+        </Button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <Table
-          columns={columns}
-          data={visualizations}
-          loading={loading}
-          emptyMessage="No visualizations yet. Create charts and graphs from your query results."
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <KPICard
+          title="Total Visualizations"
+          value={visualizations.length}
+          icon={<BarChart3 size={24} />}
+          color="primary"
+        />
+        <KPICard
+          title="Charts"
+          value={chartCount}
+          icon={<LineChart size={24} />}
+          color="info"
+        />
+        <KPICard
+          title="Tables"
+          value={tableCount}
+          icon={<AreaChart size={24} />}
+          color="success"
+        />
+        <KPICard
+          title="Basic Charts"
+          value={basicCharts}
+          icon={<PieChart size={24} />}
+          color="warning"
         />
       </div>
+
+      {/* Search */}
+      {visualizations.length > 0 && (
+        <div className="card">
+          <div className="flex items-center gap-3">
+            <Search className="w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search visualizations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Visualizations Grid */}
+      {filteredVisualizations.length === 0 && !searchQuery ? (
+        <div className="card">
+          <EmptyState
+            icon={<BarChart3 size={64} />}
+            title="No Visualizations"
+            description="Create charts and graphs from your query results to visualize your data."
+            actionLabel="Create Visualization"
+            onAction={openCreateModal}
+          />
+        </div>
+      ) : filteredVisualizations.length === 0 && searchQuery ? (
+        <div className="card">
+          <EmptyState
+            icon={<Search size={48} />}
+            title="No Results"
+            description="No visualizations match your search."
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredVisualizations.map((viz, index) => (
+            <motion.div
+              key={viz.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="card-hover group"
+            >
+              {/* Type Badge */}
+              <div className="absolute top-4 right-4 z-10">
+                <span className="badge badge-secondary">
+                  {getChartIcon(viz.type)} {getChartLabel(viz.type)}
+                </span>
+              </div>
+
+              {/* Content */}
+              <div className="flex items-start gap-4 mb-4">
+                <div className="p-3 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-xl shadow-lg flex-shrink-0">
+                  <BarChart3 className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0 pr-16">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">
+                    {viz.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                    {viz.query_details?.name || 'Unknown query'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Preview Icon */}
+              <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg flex items-center justify-center">
+                <div className="text-5xl">
+                  {getChartIcon(viz.type)}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => handleView(viz)}
+                  icon={<Eye size={14} />}
+                  fullWidth
+                >
+                  View
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEdit(viz)}
+                  icon={<Edit2 size={14} />}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDelete(viz.id)}
+                  icon={<Trash2 size={14} />}
+                  className="text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20"
+                />
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Create/Edit Modal */}
       <Modal
@@ -263,98 +377,20 @@ const VisualizationsPage = () => {
           resetForm();
         }}
         title={editingVisualization ? 'Edit Visualization' : 'New Visualization'}
+        size="lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Visualization Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-              placeholder="My Chart"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Chart Type *
-            </label>
-            <select
-              required
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-            >
-              {Object.entries(groupedChartTypes).map(([category, charts]) => (
-                <optgroup key={category} label={category}>
-                  {charts.map((chart) => (
-                    <option key={chart.value} value={chart.value}>
-                      {chart.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Query *
-            </label>
-            <select
-              required
-              value={formData.query}
-              onChange={(e) => setFormData({ ...formData, query: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="">Select Query</option>
-              {queries.map((query) => (
-                <option key={query.id} value={query.id}>
-                  {query.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Configuration (JSON)
-            </label>
-            <textarea
-              value={formData.config}
-              onChange={(e) => setFormData({ ...formData, config: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
-              rows={5}
-              placeholder='{"xAxis": "column_name", "yAxis": ["value1", "value2"], "title": "My Chart"}'
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Optional: Configure chart axes and display options
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                resetForm();
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-            >
-              {editingVisualization ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
+        <VisualizationForm
+          formData={formData}
+          setFormData={setFormData}
+          queries={queries}
+          groupedChartTypes={groupedChartTypes}
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsModalOpen(false);
+            resetForm();
+          }}
+          isEditing={!!editingVisualization}
+        />
       </Modal>
 
       {/* View Modal */}
@@ -375,5 +411,108 @@ const VisualizationsPage = () => {
     </div>
   );
 };
+
+// Visualization Form Component
+interface VisualizationFormProps {
+  formData: any;
+  setFormData: React.Dispatch<React.SetStateAction<any>>;
+  queries: Query[];
+  groupedChartTypes: Record<string, typeof CHART_TYPES>;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
+}
+
+const VisualizationForm = ({
+  formData,
+  setFormData,
+  queries,
+  groupedChartTypes,
+  onSubmit,
+  onCancel,
+  isEditing
+}: VisualizationFormProps) => (
+  <form onSubmit={onSubmit} className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Visualization Name *
+      </label>
+      <input
+        type="text"
+        required
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        className="input"
+        placeholder="My Chart"
+      />
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Chart Type *
+      </label>
+      <select
+        required
+        value={formData.type}
+        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+        className="select"
+      >
+        {Object.entries(groupedChartTypes).map(([category, charts]) => (
+          <optgroup key={category} label={category}>
+            {charts.map((chart) => (
+              <option key={chart.value} value={chart.value}>
+                {chart.icon} {chart.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Query *
+      </label>
+      <select
+        required
+        value={formData.query}
+        onChange={(e) => setFormData({ ...formData, query: e.target.value })}
+        className="select"
+      >
+        <option value="">Select Query</option>
+        {queries.map((query) => (
+          <option key={query.id} value={query.id}>
+            {query.name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Configuration (JSON)
+      </label>
+      <textarea
+        value={formData.config}
+        onChange={(e) => setFormData({ ...formData, config: e.target.value })}
+        className="input font-mono text-sm"
+        rows={5}
+        placeholder='{"xAxis": "column_name", "yAxis": ["value1", "value2"], "title": "My Chart"}'
+      />
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        Optional: Configure chart axes and display options
+      </p>
+    </div>
+
+    <div className="flex justify-end gap-3 pt-4">
+      <Button type="button" variant="outline" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button type="submit">
+        {isEditing ? 'Update' : 'Create'}
+      </Button>
+    </div>
+  </form>
+);
 
 export default VisualizationsPage;
