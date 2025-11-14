@@ -4,7 +4,7 @@
 
 ### *Production-Ready Business Intelligence Platform*
 
-[![Stars](https://img.shields.io/github/stars/huzefanw/vizly?style=social)](https://github.com/huzefanw/vizly)
+[![Stars](https://img.shields.io/github/stars/huzaifa525/vizly?style=social)](https://github.com/huzefanw/vizly)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Django](https://img.shields.io/badge/Django-5.0-green.svg)](https://www.djangoproject.com/)
 [![React](https://img.shields.io/badge/React-18.3-blue.svg)](https://reactjs.org/)
