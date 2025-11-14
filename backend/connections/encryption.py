@@ -8,7 +8,7 @@ import base64
 import os
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from django.conf import settings
 
 
@@ -45,7 +45,7 @@ def get_encryption_key():
         salt = base64.b64decode(salt_str.encode())
 
     # Derive a key using PBKDF2
-    kdf = PBKDF2(
+    kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
