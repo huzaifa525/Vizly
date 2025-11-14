@@ -27,7 +27,7 @@
 
 ## 🌟 Overview
 
-**Vizly** is a production-ready, self-hosted Business Intelligence platform that combines the power of modern web technologies with enterprise-grade security. Built by [**Huzefa Nalkheda Wala**](https://huzaifa525.dev), AI Product Engineer at CleverFlow, Vizly brings professional BI capabilities to teams who want complete control over their data.
+**Vizly** is a production-ready, self-hosted Business Intelligence platform that combines the power of modern web technologies with enterprise-grade security. Built by [**Huzefa Nalkheda Wala**](http://huzefanalkhedawala.in/), AI Product Engineer at CleverFlow, Vizly brings professional BI capabilities to teams who want complete control over their data.
 
 ### Why Vizly?
 
@@ -555,7 +555,7 @@ GET    /api/activity/stats/          # Activity statistics
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-3K+_followers-0077B5?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/huzaifa525)
 [![GitHub](https://img.shields.io/badge/GitHub-47_repos-181717?style=for-the-badge&logo=github)](https://github.com/huzaifa525)
 [![Hugging Face](https://img.shields.io/badge/HuggingFace-5_models-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/huzaifanw)
-[![Portfolio](https://img.shields.io/badge/Portfolio-huzaifa525.dev-00C4CC?style=for-the-badge&logo=google-chrome&logoColor=white)](https://huzaifa525.dev)
+[![Portfolio](https://img.shields.io/badge/Portfolio-huzaifa525.dev-00C4CC?style=for-the-badge&logo=google-chrome&logoColor=white)](http://huzefanalkhedawala.in/)
 
 </div>
 
@@ -676,7 +676,7 @@ SOFTWARE.
 - 🐛 [Issue Tracker](https://github.com/huzaifa525/vizly/issues) - Report bugs, request features
 - 📧 [Email](mailto:huzaifanalkhedaemp@gmail.com) - Direct contact
 - 🔗 [LinkedIn](https://linkedin.com/in/huzaifa525) - Professional network
-- 🌐 [Portfolio](https://huzaifa525.dev) - More projects and research
+- 🌐 [Portfolio](http://huzefanalkhedawala.in/) - More projects and research
 
 ---
 
@@ -684,7 +684,7 @@ SOFTWARE.
 
 ### ⭐ Star this repo if you find it useful!
 
-**Built with ❤️ by [Huzefa Nalkheda Wala](https://huzaifa525.dev)**
+**Built with ❤️ by [Huzefa Nalkheda Wala](http://huzefanalkhedawala.in/)**
 
 *Transforming data into insights, one query at a time.*
 
