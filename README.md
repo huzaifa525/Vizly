@@ -4,7 +4,7 @@
 
 ### *Production-Ready Business Intelligence Platform*
 
-[![Stars](https://img.shields.io/github/stars/huzefanw/vizly?style=social)](https://github.com/huzefanw/vizly)
+[![Stars](https://img.shields.io/github/stars/huzaifa525/vizly?style=social)](https://github.com/huzaifa525/vizly)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Django](https://img.shields.io/badge/Django-5.0-green.svg)](https://www.djangoproject.com/)
 [![React](https://img.shields.io/badge/React-18.3-blue.svg)](https://reactjs.org/)
@@ -27,7 +27,7 @@
 
 ## 🌟 Overview
 
-**Vizly** is a production-ready, self-hosted Business Intelligence platform that combines the power of modern web technologies with enterprise-grade security. Built by [**Huzefa Nalkheda Wala**](https://huzefanw.dev), AI Product Engineer at CleverFlow, Vizly brings professional BI capabilities to teams who want complete control over their data.
+**Vizly** is a production-ready, self-hosted Business Intelligence platform that combines the power of modern web technologies with enterprise-grade security. Built by [**Huzefa Nalkheda Wala**](http://huzefanalkhedawala.in/), AI Product Engineer at CleverFlow, Vizly brings professional BI capabilities to teams who want complete control over their data.
 
 ### Why Vizly?
 
@@ -152,7 +152,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/huzefanw/vizly.git
+git clone https://github.com/huzaifa525/vizly.git
 cd vizly
 
 # Run automated setup (generates secure keys)
@@ -552,10 +552,10 @@ GET    /api/activity/stats/          # Activity statistics
 
 **AI Product Engineer @ CleverFlow | IIT Ropar AI Specialization**
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-3K+_followers-0077B5?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/huzefanw)
-[![GitHub](https://img.shields.io/badge/GitHub-47_repos-181717?style=for-the-badge&logo=github)](https://github.com/huzefanw)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-3K+_followers-0077B5?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/huzaifa525)
+[![GitHub](https://img.shields.io/badge/GitHub-47_repos-181717?style=for-the-badge&logo=github)](https://github.com/huzaifa525)
 [![Hugging Face](https://img.shields.io/badge/HuggingFace-5_models-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/huzaifanw)
-[![Portfolio](https://img.shields.io/badge/Portfolio-huzefanw.dev-00C4CC?style=for-the-badge&logo=google-chrome&logoColor=white)](https://huzefanw.dev)
+[![Portfolio](https://img.shields.io/badge/Portfolio-huzaifa525.dev-00C4CC?style=for-the-badge&logo=google-chrome&logoColor=white)](http://huzefanalkhedawala.in/)
 
 </div>
 
@@ -612,7 +612,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### 🐛 Bug Reports
 
-Found a bug? Please [open an issue](https://github.com/huzefanw/vizly/issues) with:
+Found a bug? Please [open an issue](https://github.com/huzaifa525/vizly/issues) with:
 - Clear description of the bug
 - Steps to reproduce
 - Expected vs actual behavior
@@ -620,7 +620,7 @@ Found a bug? Please [open an issue](https://github.com/huzefanw/vizly/issues) wi
 
 ### 💡 Feature Requests
 
-Have an idea? We'd love to hear it! [Open a feature request](https://github.com/huzefanw/vizly/issues/new?labels=enhancement) with:
+Have an idea? We'd love to hear it! [Open a feature request](https://github.com/huzaifa525/vizly/issues/new?labels=enhancement) with:
 - Detailed description of the feature
 - Use case and benefits
 - Possible implementation approach
@@ -657,7 +657,7 @@ SOFTWARE.
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=huzefanw/vizly&type=Date)](https://star-history.com/#huzefanw/vizly&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=huzaifa525/vizly&type=Date)](https://star-history.com/#huzaifa525/vizly&Date)
 
 ---
 
@@ -672,11 +672,11 @@ SOFTWARE.
 
 ## 📞 Support & Community
 
-- 💬 [GitHub Discussions](https://github.com/huzefanw/vizly/discussions) - Ask questions, share ideas
-- 🐛 [Issue Tracker](https://github.com/huzefanw/vizly/issues) - Report bugs, request features
+- 💬 [GitHub Discussions](https://github.com/huzaifa525/vizly/discussions) - Ask questions, share ideas
+- 🐛 [Issue Tracker](https://github.com/huzaifa525/vizly/issues) - Report bugs, request features
 - 📧 [Email](mailto:huzaifanalkhedaemp@gmail.com) - Direct contact
-- 🔗 [LinkedIn](https://linkedin.com/in/huzefanw) - Professional network
-- 🌐 [Portfolio](https://huzefanw.dev) - More projects and research
+- 🔗 [LinkedIn](https://linkedin.com/in/huzaifa525) - Professional network
+- 🌐 [Portfolio](http://huzefanalkhedawala.in/) - More projects and research
 
 ---
 
@@ -684,7 +684,7 @@ SOFTWARE.
 
 ### ⭐ Star this repo if you find it useful!
 
-**Built with ❤️ by [Huzefa Nalkheda Wala](https://huzefanw.dev)**
+**Built with ❤️ by [Huzefa Nalkheda Wala](http://huzefanalkhedawala.in/)**
 
 *Transforming data into insights, one query at a time.*
 
