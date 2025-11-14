@@ -65,4 +65,5 @@ export interface QueryResult {
   columns: { name: string; dataType: number }[];
   rows: any[];
   rowCount: number;
+  executionTime?: number;
 }

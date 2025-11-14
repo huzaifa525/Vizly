@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   BarChart3, Trash2, Edit2, Eye, Plus, Search, PieChart,
-  LineChart, AreaChart, TrendingUp
+  LineChart, AreaChart
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';

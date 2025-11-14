@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Activity, TrendingUp, TrendingDown, Clock, AlertTriangle,
+  Activity, Clock, AlertTriangle,
   CheckCircle, XCircle, Zap
 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import KPICard from '../components/KPICard';
 import SkeletonLoader from '../components/SkeletonLoader';
-import api from '../services/api';
 
 interface QueryExecution {
   id: string;

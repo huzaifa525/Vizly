@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Trash2, Edit2, Eye, Plus, Search, Download, BarChart } from 'lucide-react';
+import { LayoutDashboard, Trash2, Edit2, Eye, Plus, Search, BarChart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Dashboard } from '../types';

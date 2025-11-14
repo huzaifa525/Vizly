@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Database, Trash2, Edit2, TestTube, Plus, Search, Server, CheckCircle2, XCircle } from 'lucide-react';
+import { Database, Trash2, Edit2, TestTube, Plus, Search, Server, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import Button from '../components/Button';

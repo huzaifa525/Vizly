@@ -69,7 +69,7 @@ const DashboardViewPage = () => {
     try {
       const viz = visualizations.find(v => v.id === vizId);
       if (viz) {
-        const result = await queriesAPI.execute(viz.queryId);
+        const result = await queriesAPI.execute(viz.query);
         setVizData(prev => ({ ...prev, [vizId]: result }));
       }
     } catch (error: any) {
@@ -375,7 +375,7 @@ const DashboardViewPage = () => {
                       {viz.name}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {viz.type} • {viz.query?.name}
+                      {viz.type} • {viz.query_details?.name || 'No query'}
                     </p>
                   </div>
                 </label>

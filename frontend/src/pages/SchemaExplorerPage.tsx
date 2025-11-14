@@ -4,10 +4,8 @@ import {
   Database,
   Table2,
   Key,
-  Type,
   Search,
   Columns,
-  Eye,
   ChevronRight,
   ChevronDown,
 } from 'lucide-react';
