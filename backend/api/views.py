@@ -110,11 +110,16 @@ def change_password(request):
             'message': 'Current password is incorrect'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Validate new password
-    if len(new_password) < 8:
+    # Validate new password using Django's built-in validators
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    try:
+        validate_password(new_password, user)
+    except ValidationError as e:
         return Response({
             'status': 'error',
-            'message': 'New password must be at least 8 characters'
+            'message': ', '.join(e.messages)
         }, status=status.HTTP_400_BAD_REQUEST)
 
     # Set new password

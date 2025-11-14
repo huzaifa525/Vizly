@@ -97,8 +97,24 @@ class QueryViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def execute(self, request, pk=None):
         """Execute the SQL query"""
+        from .sql_validator import validate_sql_query, sanitize_error_message
+
         try:
             query = self.get_queryset().get(pk=pk)
+
+            # Security: Validate saved query before execution
+            user_is_admin = request.user.is_staff or request.user.is_superuser
+            is_valid, error_message = validate_sql_query(query.sql, user_is_admin=user_is_admin)
+
+            if not is_valid:
+                logger.warning(
+                    f"Saved query {pk} validation failed for user {request.user.id}: {error_message}"
+                )
+                return Response({
+                    'status': 'error',
+                    'message': f"Query validation failed: {error_message}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             result = execute_query(query.connection, query.sql)
             return Response({
                 'status': 'success',
@@ -111,14 +127,18 @@ class QueryViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"Query execution error: {str(e)}")
+            # Security: Sanitize error messages
+            safe_message = sanitize_error_message(str(e))
             return Response({
                 'status': 'error',
-                'message': str(e)
+                'message': safe_message
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'])
     def execute_raw(self, request):
         """Execute raw SQL query"""
+        from .sql_validator import validate_sql_query, sanitize_error_message
+
         try:
             connection_id = request.data.get('connection_id')
             sql = request.data.get('sql')
@@ -127,6 +147,19 @@ class QueryViewSet(viewsets.ModelViewSet):
                 return Response({
                     'status': 'error',
                     'message': 'connection_id and sql are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Security: Validate SQL query before execution
+            user_is_admin = request.user.is_staff or request.user.is_superuser
+            is_valid, error_message = validate_sql_query(sql, user_is_admin=user_is_admin)
+
+            if not is_valid:
+                logger.warning(
+                    f"SQL validation failed for user {request.user.id}: {error_message}"
+                )
+                return Response({
+                    'status': 'error',
+                    'message': error_message
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             connection = Connection.objects.get(pk=connection_id, user=request.user)
@@ -142,9 +175,11 @@ class QueryViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"Raw query execution error: {str(e)}")
+            # Security: Sanitize error messages to avoid exposing sensitive info
+            safe_message = sanitize_error_message(str(e))
             return Response({
                 'status': 'error',
-                'message': str(e)
+                'message': safe_message
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'])

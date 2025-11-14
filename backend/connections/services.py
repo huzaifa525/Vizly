@@ -293,7 +293,14 @@ def _get_sqlite_schema(conn):
         table_name = table_row[0]
 
         # Get columns for each table
-        columns_query = text(f"PRAGMA table_info({table_name})")
+        # Security: Use parameterized query to prevent SQL injection
+        # SQLite PRAGMA doesn't support parameters, so we validate the table name
+        # Only allow alphanumeric characters, underscores, and ensure it exists in sqlite_master
+        if not table_name.replace('_', '').isalnum():
+            logger.warning(f"Invalid table name detected: {table_name}")
+            continue
+
+        columns_query = text(f"PRAGMA table_info(`{table_name}`)")
         columns_result = conn.execute(columns_query)
 
         columns = []

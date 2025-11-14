@@ -21,9 +21,28 @@ def get_encryption_key():
     """
     secret_key = settings.SECRET_KEY.encode()
 
-    # Use a consistent salt for key derivation
-    # In production, you might want to store this separately
-    salt = b'vizly-db-creds-salt-v1'
+    # Get unique salt from environment or generate one
+    # SECURITY: Each installation should have a unique salt
+    from decouple import config
+
+    salt_str = config('ENCRYPTION_SALT', default=None)
+
+    if salt_str is None:
+        # Generate a unique salt for this installation
+        # This should be saved to .env file after generation
+        salt = os.urandom(32)
+        salt_b64 = base64.b64encode(salt).decode()
+
+        # Log warning to remind admin to save the salt
+        import logging
+        logger = logging.getLogger('connections')
+        logger.warning(
+            f"ENCRYPTION_SALT not found in environment. Generated new salt. "
+            f"Add this to your .env file to persist it: ENCRYPTION_SALT={salt_b64}"
+        )
+    else:
+        # Use the salt from environment
+        salt = base64.b64decode(salt_str.encode())
 
     # Derive a key using PBKDF2
     kdf = PBKDF2(
