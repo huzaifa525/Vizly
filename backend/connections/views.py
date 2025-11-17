@@ -50,10 +50,10 @@ class ConnectionViewSet(viewsets.ModelViewSet):
             'message': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    def update(self, request, pk=None):
+    def update(self, request, pk=None, partial=False):
         try:
             connection = self.get_queryset().get(pk=pk)
-            serializer = self.get_serializer(connection, data=request.data, partial=True)
+            serializer = self.get_serializer(connection, data=request.data, partial=partial)
             if serializer.is_valid():
                 serializer.save()
                 return Response({
@@ -69,6 +69,9 @@ class ConnectionViewSet(viewsets.ModelViewSet):
                 'status': 'error',
                 'message': 'Connection not found'
             }, status=status.HTTP_404_NOT_FOUND)
+
+    def partial_update(self, request, pk=None):
+        return self.update(request, pk, partial=True)
 
     def destroy(self, request, pk=None):
         try:
