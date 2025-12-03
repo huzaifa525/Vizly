@@ -1,4 +1,4 @@
-# Vizly Setup Guide
+# Vizly Setup Guid
 
 This guide will help you set up Vizly for local development or production deployment.
 
