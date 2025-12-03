@@ -1,7 +1,7 @@
 # Vizly Architecture
 
 ## Overview
-Vizly is a lightweight, self-hosted business intelligence tool built with modern web technologies.
+Vizly is a lightweight, self-hosted business intelligence tool built with modern web technologies
 
 ## Technology Stack
 
