@@ -1,6 +1,6 @@
 # Vizly Setup Guide
 
-This guide will help you set up Vizly for local development or production deployment.
+This guide will help you set up Vizly for local development or production deployment
 
 ## Table of Contents
 - [Local Development Setup](#local-development-setup)
