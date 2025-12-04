@@ -1,4 +1,3 @@
-# Multi-stage build for Vizly with Django
 
 # Stage 1: Build frontend
 FROM node:18-alpine AS frontend-builder

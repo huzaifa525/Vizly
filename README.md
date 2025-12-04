@@ -228,4 +228,4 @@ MIT License - see LICENSE file for details
 
 ## Support
 
-For issues, questions, or contributions, please open an issue on GitHub.
+For issues, questions, or contributions, please open an issue on GitHub
